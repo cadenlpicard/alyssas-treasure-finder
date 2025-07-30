@@ -21,48 +21,95 @@ interface EstateSaleCardProps {
 
 export const EstateSaleCard = ({ sale }: EstateSaleCardProps) => {
   // Extract data from markdown if other fields are not available
-  const extractFromMarkdown = (markdown: string): { title: string; date: string; address: string; company: string } => {
-    const lines = markdown.split('\n');
+  const extractFromMarkdown = (markdown: string): { title: string; date: string; address: string; company: string; description: string } => {
+    const lines = markdown.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     let title = '';
     let date = '';
     let address = '';
     let company = '';
+    let description = '';
     
-    // Look for common patterns in estate sale listings
+    // Look for patterns specific to estate sale listings
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+      const line = lines[i];
+      const lowerLine = line.toLowerCase();
       
-      // Title is often the first heading or large text
-      if (line.startsWith('#') && !title) {
-        title = line.replace(/^#+\s*/, '');
+      // Title patterns - often contain "SALE" or are in all caps
+      if (!title && (lowerLine.includes('sale') || line === line.toUpperCase()) && line.length > 10 && line.length < 100) {
+        title = line;
       }
       
-      // Look for date patterns
-      if (line.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i) && !date) {
+      // Date patterns - look for month names, dates, or specific date formats
+      if (!date && (
+        line.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i) ||
+        line.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/) ||
+        line.match(/\d{1,2}-\d{1,2}-\d{2,4}/) ||
+        line.match(/\w+\s+\d{1,2}/) ||
+        lowerLine.includes('aug ') ||
+        lowerLine.includes('jul ')
+      )) {
         date = line;
       }
       
-      // Look for address patterns (contains street numbers or "Dr", "St", "Ave", etc.)
-      if (line.match(/\d+.*?(street|st|avenue|ave|drive|dr|road|rd|lane|ln|way|circle|cir)/i) && !address) {
-        address = line;
+      // Address patterns - look for street addresses
+      if (!address && (
+        line.match(/\d+\s+[A-Za-z\s]+(street|st|avenue|ave|drive|dr|road|rd|lane|ln|way|circle|cir|court|ct|place|pl|boulevard|blvd)[\s\w]*/i) ||
+        line.match(/\[\d+\s+[A-Za-z\s]+/i)
+      )) {
+        address = line.replace(/[\[\]]/g, ''); // Remove brackets if present
       }
       
-      // Look for company/organizer
-      if (line.toLowerCase().includes('estate sale') && line.toLowerCase().includes('by') && !company) {
+      // Company/presenter patterns
+      if (!company && (
+        lowerLine.includes('presented by') ||
+        lowerLine.includes('estate sales') ||
+        lowerLine.includes('four star') ||
+        lowerLine.includes('call ')
+      )) {
         company = line;
+      }
+      
+      // Description - look for longer descriptive text
+      if (!description && line.length > 50 && !lowerLine.includes('estate sale') && !line.match(/\d+\s+\w+/)) {
+        description = line;
       }
     }
     
-    return { title, date, address, company };
+    // Fallback extraction from concatenated text
+    const fullText = lines.join(' ');
+    
+    // Extract dates from full text if not found
+    if (!date) {
+      const dateMatch = fullText.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}/i) ||
+                       fullText.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/) ||
+                       fullText.match(/##+\s*(Aug|Jul|Sep|Oct|Nov|Dec)\s*\d{1,2}/i);
+      if (dateMatch) {
+        date = dateMatch[0].replace(/#+\s*/, '');
+      }
+    }
+    
+    return { 
+      title: title || 'Estate Sale', 
+      date: date || 'Date TBD', 
+      address: address || 'Address TBD', 
+      company: company || '',
+      description: description || 'Estate sale details'
+    };
   };
 
-  const extracted = sale.markdown ? extractFromMarkdown(sale.markdown) : { title: '', date: '', address: '', company: '' };
+  const extracted = sale.markdown ? extractFromMarkdown(sale.markdown) : { 
+    title: '', 
+    date: '', 
+    address: '', 
+    company: '',
+    description: ''
+  };
   
-  const displayTitle = sale.title || extracted.title || 'Estate Sale';
-  const displayDate = sale.date || extracted.date || 'Date TBD';
-  const displayAddress = sale.address || extracted.address || 'Address TBD';
-  const displayCompany = sale.company || extracted.company || '';
-  const displayDescription = sale.description || sale.markdown?.substring(0, 200) + '...' || 'No description available';
+  const displayTitle = sale.title || extracted.title;
+  const displayDate = sale.date || extracted.date;
+  const displayAddress = sale.address || extracted.address;
+  const displayCompany = sale.company || extracted.company;
+  const displayDescription = sale.description || extracted.description;
 
   return (
     <Card className="group hover:shadow-lg transition-all duration-300 border-vintage-gold/20 bg-card/80 backdrop-blur">
@@ -103,7 +150,8 @@ export const EstateSaleCard = ({ sale }: EstateSaleCardProps) => {
           </div>
         </div>
         
-        <p className="text-sm text-muted-foreground line-clamp-3">
+        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed"
+           title={displayDescription}>
           {displayDescription}
         </p>
         
