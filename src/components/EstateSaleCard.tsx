@@ -94,7 +94,20 @@ export const EstateSaleCard = ({ sale }: EstateSaleCardProps) => {
         line.match(/\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court)/i) ||
         (line.includes('Grand Blanc') && line.includes('MI'))
       )) {
-        address = line.replace(/Grand Blanc,?\s*MI\s*\d*/gi, 'Grand Blanc, MI').trim();
+        // Clean up address formatting
+        let cleanAddress = line
+          .replace(/Grand Blanc,?\s*MI\s*\d*/gi, 'Grand Blanc, MI')
+          .replace(/\\\\/g, ' ')
+          .replace(/\s+/g, ' ')
+          .replace(/^\[|\]$/g, '') // Remove leading/trailing brackets
+          .trim();
+        
+        // If it's just "Grand Blanc, MI" with extra numbers, clean it up
+        if (cleanAddress.match(/^Grand Blanc,?\s*MI\s*\d+$/i)) {
+          cleanAddress = 'Grand Blanc, MI';
+        }
+        
+        address = cleanAddress;
         continue;
       }
       

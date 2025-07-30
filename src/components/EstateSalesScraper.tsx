@@ -248,32 +248,56 @@ export const EstateSalesScraper = () => {
               <span className="font-semibold text-primary">{crawlResult.creditsUsed}</span>
             </div>
             
-            {crawlResult.data && crawlResult.data.length > 0 && (
-              <div className="mt-6">
-                <h4 className="font-semibold mb-4 text-foreground flex items-center gap-2">
-                  <Grid className="w-5 h-5 text-vintage-gold" />
-                  Found Estate Sales ({crawlResult.data.length})
-                </h4>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {crawlResult.data.map((item: any, index: number) => (
-                    <EstateSaleCard 
-                      key={index} 
-                      sale={{
-                        title: item.title,
-                        date: item.date,
-                        address: item.address,
-                        description: item.description,
-                        url: item.url || item.sourceURL,
-                        status: item.status,
-                        company: item.company,
-                        distance: item.distance,
-                        markdown: item.markdown
-                      }} 
-                    />
-                  ))}
+            {crawlResult.data && crawlResult.data.length > 0 && (() => {
+              // Deduplicate results based on similar titles and addresses
+              const deduplicatedData = crawlResult.data.filter((item: any, index: number, self: any[]) => {
+                return index === self.findIndex((other: any) => {
+                  const itemTitle = (item.title || item.markdown || '').toLowerCase().trim();
+                  const otherTitle = (other.title || other.markdown || '').toLowerCase().trim();
+                  const itemAddress = (item.address || item.markdown || '').toLowerCase().trim();
+                  const otherAddress = (other.address || other.markdown || '').toLowerCase().trim();
+                  
+                  // Consider items duplicates if titles are very similar or addresses match
+                  const titleSimilarity = itemTitle === otherTitle || 
+                    (itemTitle.length > 10 && otherTitle.length > 10 && 
+                     (itemTitle.includes(otherTitle.substring(0, 15)) || otherTitle.includes(itemTitle.substring(0, 15))));
+                  
+                  const addressSimilarity = itemAddress === otherAddress ||
+                    (itemAddress.includes('del rio') && otherAddress.includes('del rio')) ||
+                    (itemAddress.includes('grand blanc') && otherAddress.includes('grand blanc') && 
+                     itemAddress.length < 50 && otherAddress.length < 50);
+                  
+                  return titleSimilarity || addressSimilarity;
+                });
+              });
+
+              return (
+                <div className="mt-6">
+                  <h4 className="font-semibold mb-4 text-foreground flex items-center gap-2">
+                    <Grid className="w-5 h-5 text-vintage-gold" />
+                    Found Estate Sales ({deduplicatedData.length})
+                  </h4>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {deduplicatedData.map((item: any, index: number) => (
+                      <EstateSaleCard 
+                        key={index} 
+                        sale={{
+                          title: item.title,
+                          date: item.date,
+                          address: item.address,
+                          description: item.description,
+                          url: item.url || item.sourceURL,
+                          status: item.status,
+                          company: item.company,
+                          distance: item.distance,
+                          markdown: item.markdown
+                        }} 
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
       )}
