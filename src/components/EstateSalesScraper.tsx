@@ -6,7 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { FirecrawlService } from '@/utils/FirecrawlService';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, DollarSign, Search } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Search, Grid } from 'lucide-react';
+import { EstateSaleCard } from './EstateSaleCard';
 
 interface CrawlResult {
   success: boolean;
@@ -249,11 +250,27 @@ export const EstateSalesScraper = () => {
             
             {crawlResult.data && crawlResult.data.length > 0 && (
               <div className="mt-6">
-                <h4 className="font-semibold mb-3 text-foreground">Estate Sales Data:</h4>
-                <div className="bg-muted/50 p-4 rounded-lg max-h-64 overflow-auto">
-                  <pre className="text-xs text-foreground whitespace-pre-wrap">
-                    {JSON.stringify(crawlResult.data, null, 2)}
-                  </pre>
+                <h4 className="font-semibold mb-4 text-foreground flex items-center gap-2">
+                  <Grid className="w-5 h-5 text-vintage-gold" />
+                  Found Estate Sales ({crawlResult.data.length})
+                </h4>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {crawlResult.data.map((item: any, index: number) => (
+                    <EstateSaleCard 
+                      key={index} 
+                      sale={{
+                        title: item.title,
+                        date: item.date,
+                        address: item.address,
+                        description: item.description,
+                        url: item.url || item.sourceURL,
+                        status: item.status,
+                        company: item.company,
+                        distance: item.distance,
+                        markdown: item.markdown
+                      }} 
+                    />
+                  ))}
                 </div>
               </div>
             )}
