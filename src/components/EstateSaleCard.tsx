@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Calendar, Clock, ExternalLink, Tag } from 'lucide-react';
+import { Checkbox } from "@/components/ui/checkbox";
+import { MapPin, Calendar, Clock, ExternalLink, Tag, CheckCircle } from 'lucide-react';
 
 interface EstateSale {
   title?: string;
@@ -17,9 +18,11 @@ interface EstateSale {
 
 interface EstateSaleCardProps {
   sale: EstateSale;
+  isSelected?: boolean;
+  onSelect?: (sale: EstateSale, selected: boolean) => void;
 }
 
-export const EstateSaleCard = ({ sale }: EstateSaleCardProps) => {
+export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSaleCardProps) => {
   // Extract data from markdown if other fields are not available
   const extractFromMarkdown = (markdown: string): { title: string; date: string; address: string; company: string; description: string } => {
     if (!markdown) return { title: 'Estate Sale', date: 'Date TBD', address: 'Address TBD', company: '', description: 'No details available' };
@@ -174,24 +177,36 @@ export const EstateSaleCard = ({ sale }: EstateSaleCardProps) => {
   const displayDescription = sale.description || extracted.description;
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-300 border-vintage-gold/20 bg-card/80 backdrop-blur">
+    <Card className={`group hover:shadow-lg transition-all duration-300 border-vintage-gold/20 bg-card/80 backdrop-blur ${
+      isSelected ? 'ring-2 ring-vintage-gold bg-vintage-gold/10' : ''
+    }`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <CardTitle className="text-lg font-semibold text-foreground leading-tight">
-            {displayTitle}
-          </CardTitle>
+          <div className="flex items-start gap-3 flex-1">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={(checked) => onSelect?.(sale, !!checked)}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <CardTitle className="text-lg font-semibold text-foreground leading-tight">
+                {displayTitle}
+                {isSelected && <CheckCircle className="inline-block w-4 h-4 ml-2 text-vintage-gold" />}
+              </CardTitle>
+              {displayCompany && (
+                <p className="text-sm text-muted-foreground font-medium mt-1">
+                  {displayCompany}
+                </p>
+              )}
+            </div>
+          </div>
+          
           {sale.status && (
             <Badge variant="secondary" className="text-xs">
               {sale.status}
             </Badge>
           )}
         </div>
-        
-        {displayCompany && (
-          <p className="text-sm text-muted-foreground font-medium">
-            {displayCompany}
-          </p>
-        )}
       </CardHeader>
       
       <CardContent className="space-y-3">

@@ -6,8 +6,21 @@ import { Progress } from "@/components/ui/progress";
 import { FirecrawlService } from '@/utils/FirecrawlService';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, DollarSign, Search, Grid } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map } from 'lucide-react';
 import { EstateSaleCard } from './EstateSaleCard';
+import { RouteMap } from './RouteMap';
+
+interface EstateSale {
+  title?: string;
+  date?: string;
+  address?: string;
+  description?: string;
+  url?: string;
+  status?: string;
+  company?: string;
+  distance?: string;
+  markdown?: string;
+}
 
 interface CrawlResult {
   success: boolean;
@@ -27,6 +40,8 @@ export const EstateSalesScraper = () => {
   const [progress, setProgress] = useState(0);
   const [crawlResult, setCrawlResult] = useState<CrawlResult | null>(null);
   const [hasApiKey, setHasApiKey] = useState(!!FirecrawlService.getApiKey());
+  const [selectedSales, setSelectedSales] = useState<EstateSale[]>([]);
+  const [showRouteMap, setShowRouteMap] = useState(false);
 
   const handleApiKeySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +73,26 @@ export const EstateSalesScraper = () => {
         duration: 3000,
       });
     }
+  };
+
+  const handleSaleSelection = (sale: EstateSale, selected: boolean) => {
+    if (selected) {
+      setSelectedSales(prev => [...prev, sale]);
+    } else {
+      setSelectedSales(prev => prev.filter(s => s !== sale));
+    }
+  };
+
+  const handlePlanRoute = () => {
+    if (selectedSales.length < 2) {
+      toast({
+        title: "Selection Required",
+        description: "Please select at least 2 estate sales to plan a route",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowRouteMap(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,6 +152,17 @@ export const EstateSalesScraper = () => {
       setIsLoading(false);
     }
   };
+
+  if (showRouteMap) {
+    return (
+      <div className="w-full max-w-4xl mx-auto p-8">
+        <RouteMap 
+          selectedSales={selectedSales} 
+          onClose={() => setShowRouteMap(false)} 
+        />
+      </div>
+    );
+  }
 
   if (!hasApiKey) {
     return (
@@ -273,27 +319,51 @@ export const EstateSalesScraper = () => {
 
               return (
                 <div className="mt-6">
-                  <h4 className="font-semibold mb-4 text-foreground flex items-center gap-2">
-                    <Grid className="w-5 h-5 text-vintage-gold" />
-                    Found Estate Sales ({deduplicatedData.length})
-                  </h4>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-foreground flex items-center gap-2">
+                      <Grid className="w-5 h-5 text-vintage-gold" />
+                      Found Estate Sales ({deduplicatedData.length})
+                    </h4>
+                    {selectedSales.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {selectedSales.length} selected
+                        </Badge>
+                        <Button 
+                          onClick={handlePlanRoute}
+                          size="sm"
+                          variant="vintage"
+                          className="flex items-center gap-1"
+                        >
+                          <Map className="w-4 h-4" />
+                          Plan Route
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   <div className="grid gap-4 md:grid-cols-2">
-                    {deduplicatedData.map((item: any, index: number) => (
-                      <EstateSaleCard 
-                        key={index} 
-                        sale={{
-                          title: item.title,
-                          date: item.date,
-                          address: item.address,
-                          description: item.description,
-                          url: item.url || item.sourceURL,
-                          status: item.status,
-                          company: item.company,
-                          distance: item.distance,
-                          markdown: item.markdown
-                        }} 
-                      />
-                    ))}
+                    {deduplicatedData.map((item: any, index: number) => {
+                      const saleData: EstateSale = {
+                        title: item.title,
+                        date: item.date,
+                        address: item.address,
+                        description: item.description,
+                        url: item.url || item.sourceURL,
+                        status: item.status,
+                        company: item.company,
+                        distance: item.distance,
+                        markdown: item.markdown
+                      };
+                      
+                      return (
+                        <EstateSaleCard 
+                          key={index} 
+                          sale={saleData}
+                          isSelected={selectedSales.some(s => s.markdown === saleData.markdown)}
+                          onSelect={handleSaleSelection}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               );
