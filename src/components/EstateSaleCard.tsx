@@ -22,78 +22,127 @@ interface EstateSaleCardProps {
 export const EstateSaleCard = ({ sale }: EstateSaleCardProps) => {
   // Extract data from markdown if other fields are not available
   const extractFromMarkdown = (markdown: string): { title: string; date: string; address: string; company: string; description: string } => {
-    const lines = markdown.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    if (!markdown) return { title: 'Estate Sale', date: 'Date TBD', address: 'Address TBD', company: '', description: 'No details available' };
+    
+    // Clean the markdown by removing navigation and technical elements
+    const cleanText = markdown
+      .replace(/arrow_back/g, '')
+      .replace(/\\_/g, ' ')
+      .replace(/List of.*?search/g, '')
+      .replace(/https?:\/\/[^\s\)]+/g, '') // Remove URLs
+      .replace(/\([^)]*maps\.google[^)]*\)/g, '') // Remove Google Maps references
+      .replace(/\([^)]*https?[^)]*\)/g, '') // Remove URLs in parentheses
+      .replace(/#{1,6}\s*/g, '') // Remove markdown headers
+      .replace(/\n\s*\n/g, '\n') // Remove double newlines
+      .trim();
+
+    const lines = cleanText.split('\n')
+      .map(line => line.trim())
+      .filter(line => 
+        line.length > 0 && 
+        !line.toLowerCase().includes('search') &&
+        !line.toLowerCase().includes('arrow') &&
+        !line.toLowerCase().includes('maps.google') &&
+        !line.includes('q=') &&
+        line.length < 200 // Filter out very long technical lines
+      );
+
     let title = '';
     let date = '';
     let address = '';
     let company = '';
     let description = '';
     
-    // Look for patterns specific to estate sale listings
+    // Extract meaningful information
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const lowerLine = line.toLowerCase();
       
-      // Title patterns - often contain "SALE" or are in all caps
-      if (!title && (lowerLine.includes('sale') || line === line.toUpperCase()) && line.length > 10 && line.length < 100) {
-        title = line;
+      // Skip technical/navigation content
+      if (lowerLine.includes('http') || 
+          lowerLine.includes('maps') || 
+          lowerLine.includes('search') ||
+          lowerLine.includes('arrow') ||
+          line.length < 5) {
+        continue;
       }
       
-      // Date patterns - look for month names, dates, or specific date formats
-      if (!date && (
-        line.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i) ||
-        line.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/) ||
-        line.match(/\d{1,2}-\d{1,2}-\d{2,4}/) ||
-        line.match(/\w+\s+\d{1,2}/) ||
-        lowerLine.includes('aug ') ||
-        lowerLine.includes('jul ')
-      )) {
-        date = line;
-      }
-      
-      // Address patterns - look for street addresses
-      if (!address && (
-        line.match(/\d+\s+[A-Za-z\s]+(street|st|avenue|ave|drive|dr|road|rd|lane|ln|way|circle|cir|court|ct|place|pl|boulevard|blvd)[\s\w]*/i) ||
-        line.match(/\[\d+\s+[A-Za-z\s]+/i)
-      )) {
-        address = line.replace(/[\[\]]/g, ''); // Remove brackets if present
-      }
-      
-      // Company/presenter patterns
+      // Company/Estate Sale organizer
       if (!company && (
-        lowerLine.includes('presented by') ||
         lowerLine.includes('estate sales') ||
+        lowerLine.includes('family affair') ||
         lowerLine.includes('four star') ||
-        lowerLine.includes('call ')
+        lowerLine.includes('presented by') ||
+        lowerLine.includes('organized by')
       )) {
         company = line;
+        continue;
       }
       
-      // Description - look for longer descriptive text
-      if (!description && line.length > 50 && !lowerLine.includes('estate sale') && !line.match(/\d+\s+\w+/)) {
+      // Title - look for sale names or descriptive titles
+      if (!title && (
+        lowerLine.includes('sale') ||
+        lowerLine.includes('estate') ||
+        (line.length > 15 && line.length < 80 && !lowerLine.includes('drive') && !lowerLine.includes('street'))
+      )) {
+        title = line;
+        continue;
+      }
+      
+      // Address - look for street addresses with numbers
+      if (!address && (
+        line.match(/\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court)/i) ||
+        (line.includes('Grand Blanc') && line.includes('MI'))
+      )) {
+        address = line.replace(/Grand Blanc,?\s*MI\s*\d*/gi, 'Grand Blanc, MI').trim();
+        continue;
+      }
+      
+      // Date - look for date patterns
+      if (!date && (
+        line.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}/i) ||
+        line.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/) ||
+        line.match(/\d{1,2}-\d{1,2}-\d{2,4}/)
+      )) {
+        date = line;
+        continue;
+      }
+      
+      // Description - longer meaningful text
+      if (!description && line.length > 20 && line.length < 150 && 
+          !lowerLine.includes('estate sale') && 
+          !lowerLine.includes('grand blanc')) {
         description = line;
       }
     }
     
-    // Fallback extraction from concatenated text
-    const fullText = lines.join(' ');
+    // Fallbacks and cleanup
+    if (!title && company) {
+      title = company.replace(/estate sales?/gi, 'Estate Sale').trim();
+    }
     
-    // Extract dates from full text if not found
-    if (!date) {
-      const dateMatch = fullText.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}/i) ||
-                       fullText.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/) ||
-                       fullText.match(/##+\s*(Aug|Jul|Sep|Oct|Nov|Dec)\s*\d{1,2}/i);
-      if (dateMatch) {
-        date = dateMatch[0].replace(/#+\s*/, '');
-      }
+    if (!title) {
+      title = 'Grand Blanc Estate Sale';
+    }
+    
+    if (!address && lines.some(line => line.includes('Grand Blanc'))) {
+      address = 'Grand Blanc, MI';
+    }
+    
+    if (!company && title.toLowerCase().includes('estate')) {
+      company = 'Estate Sale';
+    }
+    
+    if (!description) {
+      description = 'Estate sale in Grand Blanc, Michigan. Contact organizer for details.';
     }
     
     return { 
-      title: title || 'Estate Sale', 
-      date: date || 'Date TBD', 
-      address: address || 'Address TBD', 
-      company: company || '',
-      description: description || 'Estate sale details'
+      title: title.trim(), 
+      date: date.trim() || 'Date TBD', 
+      address: address.trim() || 'Grand Blanc, MI', 
+      company: company.trim(),
+      description: description.trim()
     };
   };
 
