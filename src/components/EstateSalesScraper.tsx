@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Key, Loader2, Sparkles } from 'lucide-react';
 import { EstateSaleCard } from './EstateSaleCard';
 import { RouteMap } from './RouteMap';
+import { LocationInput } from './LocationInput';
 
 interface EstateSale {
   title?: string;
@@ -250,18 +251,13 @@ export const EstateSalesScraper = () => {
         <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-8 mb-8 shadow-lg animate-scale-in">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-3">
-              <label htmlFor="url" className="text-lg font-medium text-foreground flex items-center gap-3">
-                <Search className="w-5 h-5 text-primary" />
-                Estate Sales Website URL
+              <label className="text-lg font-medium text-foreground flex items-center gap-3">
+                <MapPin className="w-5 h-5 text-primary" />
+                Select Location
               </label>
-              <Input
-                id="url"
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                className="h-14 text-lg border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
-                placeholder="https://www.estatesales.net/MI/Grand-Blanc"
-                required
+              <LocationInput 
+                onLocationChange={setUrl}
+                initialLocation={{ city: "Grand Blanc", state: "MI", zipcode: "48439" }}
               />
             </div>
             
