@@ -53,34 +53,46 @@ export class FirecrawlService {
     }
 
     try {
-      console.log('Making crawl request to Firecrawl API for:', url);
+      console.log('Making scrape request to Firecrawl API for:', url);
       if (!this.firecrawlApp) {
         this.firecrawlApp = new FirecrawlApp({ apiKey });
       }
 
-      const crawlResponse = await this.firecrawlApp.crawlUrl(url, {
-        limit: 10,
-        scrapeOptions: {
-          formats: ['markdown'],
-          onlyMainContent: true
-        }
-      }) as CrawlResponse;
+      // Use scrape instead of crawl for single page estate sales listings
+      const scrapeResponse = await this.firecrawlApp.scrapeUrl(url, {
+        formats: ['markdown'],
+        onlyMainContent: true,
+        waitFor: 3000, // Wait for content to load
+        blockAds: true
+      });
 
-      if (!crawlResponse.success) {
-        console.error('Crawl failed:', (crawlResponse as ErrorResponse).error);
+      if (!scrapeResponse.success) {
+        console.error('Scrape failed:', scrapeResponse.error);
         return { 
           success: false, 
-          error: (crawlResponse as ErrorResponse).error || 'Failed to crawl website' 
+          error: scrapeResponse.error || 'Failed to scrape website' 
         };
       }
 
-      console.log('Crawl successful:', crawlResponse);
+      console.log('Scrape successful:', scrapeResponse);
+      
+      // Convert scrape response to match expected crawl format
+      const formattedData = {
+        success: true,
+        status: 'completed',
+        completed: 1,
+        total: 1,
+        creditsUsed: 1,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        data: [scrapeResponse]
+      };
+      
       return { 
         success: true,
-        data: crawlResponse 
+        data: formattedData
       };
     } catch (error) {
-      console.error('Error during crawl:', error);
+      console.error('Error during scrape:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to connect to Firecrawl API' 
