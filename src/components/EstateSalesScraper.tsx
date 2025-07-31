@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useToast } from "@/components/ui/use-toast"; 
+import { useToast } from "@/components/ui/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -36,11 +37,29 @@ interface CrawlResult {
 export const EstateSalesScraper = () => {
   const { toast } = useToast();
   const [url, setUrl] = useState('https://www.estatesales.net/MI/Grand-Blanc');
+  const [radiusFilter, setRadiusFilter] = useState<number>(25);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [crawlResult, setCrawlResult] = useState<CrawlResult | null>(null);
   const [selectedSales, setSelectedSales] = useState<EstateSale[]>([]);
   const [showRouteMap, setShowRouteMap] = useState(false);
+
+  // Helper function to parse distance from text
+  const parseDistance = (distanceText?: string): number => {
+    if (!distanceText) return 999;
+    
+    const lowerText = distanceText.toLowerCase();
+    
+    // Handle "Less than X miles" or "Nearby" cases
+    if (lowerText.includes('less than') || lowerText.includes('nearby')) {
+      const match = lowerText.match(/less than (\d+)/);
+      return match ? parseInt(match[1]) : 2; // Default nearby to 2 miles
+    }
+    
+    // Handle "X miles away" format
+    const match = lowerText.match(/(\d+)\s+miles?\s+away/);
+    return match ? parseInt(match[1]) : 999;
+  };
 
   const handleSaleSelection = (sale: EstateSale, selected: boolean) => {
     if (selected) {
@@ -137,15 +156,39 @@ export const EstateSalesScraper = () => {
         {/* Scraping Form */}
         <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-8 mb-8 shadow-lg animate-scale-in">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-3">
-              <label className="text-lg font-medium text-foreground flex items-center gap-3">
-                <MapPin className="w-5 h-5 text-primary" />
-                Select Location
-              </label>
-              <LocationInput 
-                onLocationChange={setUrl}
-                initialLocation={{ city: "Grand Blanc", state: "MI", zipcode: "48439" }}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="text-lg font-medium text-foreground flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-primary" />
+                  Select Location
+                </label>
+                <LocationInput 
+                  onLocationChange={setUrl}
+                  initialLocation={{ city: "Grand Blanc", state: "MI", zipcode: "48439" }}
+                />
+              </div>
+              
+              <div className="space-y-3">
+                <label className="text-lg font-medium text-foreground flex items-center gap-3">
+                  <Route className="w-5 h-5 text-primary" />
+                  Search Radius
+                </label>
+                <Select value={radiusFilter.toString()} onValueChange={(value) => setRadiusFilter(parseInt(value))}>
+                  <SelectTrigger className="h-12 text-base">
+                    <SelectValue placeholder="Select radius" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 miles</SelectItem>
+                    <SelectItem value="10">10 miles</SelectItem>
+                    <SelectItem value="15">15 miles</SelectItem>
+                    <SelectItem value="20">20 miles</SelectItem>
+                    <SelectItem value="25">25 miles</SelectItem>
+                    <SelectItem value="30">30 miles</SelectItem>
+                    <SelectItem value="50">50 miles</SelectItem>
+                    <SelectItem value="999">All distances</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             {isLoading && (
@@ -215,7 +258,7 @@ export const EstateSalesScraper = () => {
             </div>
             
             {crawlResult.data && crawlResult.data.length > 0 && (() => {
-              // Deduplicate results based on similar titles and addresses
+              // First deduplicate results based on similar titles and addresses
               const deduplicatedData = crawlResult.data.filter((item: any, index: number, self: any[]) => {
                 return index === self.findIndex((other: any) => {
                   const itemTitle = (item.title || item.markdown || '').toLowerCase().trim();
@@ -237,13 +280,26 @@ export const EstateSalesScraper = () => {
                 });
               });
 
+              // Then filter by radius if not set to "All distances"
+              const filteredData = radiusFilter === 999 ? deduplicatedData : deduplicatedData.filter((item: any) => {
+                const distance = parseDistance(item.distance);
+                return distance <= radiusFilter;
+              });
+
               return (
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-semibold text-foreground flex items-center gap-2">
-                      <Grid className="w-5 h-5 text-vintage-gold" />
-                      Found Estate Sales ({deduplicatedData.length})
-                    </h4>
+                    <div className="flex items-center gap-4">
+                      <h4 className="font-semibold text-foreground flex items-center gap-2">
+                        <Grid className="w-5 h-5 text-vintage-gold" />
+                        Found Estate Sales ({filteredData.length})
+                      </h4>
+                      {radiusFilter !== 999 && filteredData.length !== deduplicatedData.length && (
+                        <Badge variant="outline" className="text-xs">
+                          {deduplicatedData.length - filteredData.length} filtered out
+                        </Badge>
+                      )}
+                    </div>
                     {selectedSales.length > 0 && (
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-xs">
@@ -262,7 +318,7 @@ export const EstateSalesScraper = () => {
                     )}
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
-                    {deduplicatedData.map((item: any, index: number) => {
+                    {filteredData.map((item: any, index: number) => {
                       const saleData: EstateSale = {
                         title: item.title,
                         date: item.date,
