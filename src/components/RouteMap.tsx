@@ -122,6 +122,12 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
   useEffect(() => {
     if (isLoadingToken || !mapboxToken || !mapContainer.current || selectedSales.length === 0) return;
 
+    // Clean up previous map
+    if (map.current) {
+      map.current.remove();
+      map.current = null;
+    }
+
     // Initialize map
     mapboxgl.accessToken = mapboxToken;
     
@@ -138,73 +144,73 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     const initializeMap = async () => {
       if (!map.current) return;
       
+      console.log('Initializing map with', selectedSales.length, 'estate sales');
+      
       // Geocode all addresses
       const coordinates: [number, number][] = [];
       const markers: mapboxgl.Marker[] = [];
+      const validSales: EstateSale[] = [];
       
       for (let i = 0; i < selectedSales.length; i++) {
         const sale = selectedSales[i];
-        if (!sale.address) continue;
+        console.log('Processing sale:', sale.title, 'Address:', sale.address);
+        
+        if (!sale.address) {
+          console.warn('Skipping sale without address:', sale.title);
+          continue;
+        }
         
         const coords = await geocodeAddress(sale.address);
+        console.log('Geocoded coordinates for', sale.address, ':', coords);
+        
         if (coords) {
           coordinates.push(coords);
+          validSales.push(sale);
           
           // Create custom marker
           const el = document.createElement('div');
-          el.className = 'w-8 h-8 bg-vintage-gold rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-white shadow-lg';
-          el.textContent = (i + 1).toString();
+          el.className = 'w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm border-2 border-background shadow-lg cursor-pointer';
+          el.textContent = (validSales.length).toString();
           
           const marker = new mapboxgl.Marker(el)
             .setLngLat(coords)
-            .setPopup(new mapboxgl.Popup().setHTML(
-              `<div class="p-2">
-                <h3 class="font-semibold text-sm">${sale.title || 'Estate Sale'}</h3>
-                <p class="text-xs text-gray-600">${sale.address}</p>
-                <p class="text-xs text-gray-500">${sale.date || 'Date TBD'}</p>
+            .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
+              `<div class="p-3 max-w-xs">
+                <h3 class="font-semibold text-sm mb-1">${sale.title || 'Estate Sale'}</h3>
+                <p class="text-xs text-gray-600 mb-1">${sale.address}</p>
+                <p class="text-xs text-gray-500 mb-1">${sale.date || 'Date TBD'}</p>
+                ${sale.company ? `<p class="text-xs text-blue-600">${sale.company}</p>` : ''}
               </div>`
             ))
             .addTo(map.current!);
           
           markers.push(marker);
+        } else {
+          console.warn('Failed to geocode address:', sale.address);
         }
       }
       
+      console.log('Found', coordinates.length, 'valid coordinates');
+      
       if (coordinates.length > 1) {
+        console.log('Calculating optimized route for', coordinates.length, 'points');
         // Calculate and display optimized route
         const routeData = await calculateOptimizedRoute(coordinates);
         
         if (routeData && map.current) {
-          // Add route to map
-          map.current.on('load', () => {
-            if (map.current && routeData.geometry) {
-              map.current.addSource('route', {
-                type: 'geojson',
-                data: {
-                  type: 'Feature',
-                  properties: {},
-                  geometry: routeData.geometry
-                }
-              });
-              
-              map.current.addLayer({
-                id: 'route',
-                type: 'line',
-                source: 'route',
-                layout: {
-                  'line-join': 'round',
-                  'line-cap': 'round'
-                },
-                paint: {
-                  'line-color': '#D4AF37', // vintage-gold
-                  'line-width': 4
-                }
-              });
-            }
-          });
+          console.log('Route calculated successfully:', routeData);
           
-          // If map is already loaded, add the route immediately
-          if (map.current.isStyleLoaded()) {
+          const addRouteToMap = () => {
+            if (!map.current || !routeData.geometry) return;
+            
+            // Remove existing route if it exists
+            if (map.current.getLayer('route')) {
+              map.current.removeLayer('route');
+            }
+            if (map.current.getSource('route')) {
+              map.current.removeSource('route');
+            }
+            
             map.current.addSource('route', {
               type: 'geojson',
               data: {
@@ -223,33 +229,56 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
                 'line-cap': 'round'
               },
               paint: {
-                'line-color': '#D4AF37',
-                'line-width': 4
+                'line-color': 'hsl(var(--primary))',
+                'line-width': 4,
+                'line-opacity': 0.8
               }
             });
+          };
+          
+          // Add route to map when style is loaded
+          if (map.current.isStyleLoaded()) {
+            addRouteToMap();
+          } else {
+            map.current.on('load', addRouteToMap);
           }
           
           setRouteInfo({
             distance: routeData.distance + ' miles',
             duration: routeData.duration + ' minutes'
           });
-          
-          // Fit map to show all points
-          const bounds = new mapboxgl.LngLatBounds();
-          coordinates.forEach(coord => bounds.extend(coord));
-          map.current.fitBounds(bounds, { padding: 50 });
+        } else {
+          console.error('Failed to calculate route');
         }
       } else if (coordinates.length === 1) {
-        // Center on single point
+        console.log('Centering on single point');
         map.current?.setCenter(coordinates[0]);
         map.current?.setZoom(15);
       }
+      
+      // Fit map to show all points with padding
+      if (coordinates.length > 0) {
+        const bounds = new mapboxgl.LngLatBounds();
+        coordinates.forEach(coord => bounds.extend(coord));
+        map.current?.fitBounds(bounds, { 
+          padding: { top: 50, bottom: 50, left: 50, right: 50 },
+          maxZoom: 15
+        });
+      }
     };
 
-    initializeMap();
+    // Wait for map to be ready before initializing
+    if (map.current.isStyleLoaded()) {
+      initializeMap();
+    } else {
+      map.current.on('load', initializeMap);
+    }
 
     return () => {
-      map.current?.remove();
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
     };
   }, [isLoadingToken, selectedSales, mapboxToken]);
 
