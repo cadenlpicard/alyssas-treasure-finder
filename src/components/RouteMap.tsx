@@ -156,28 +156,55 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
       
       // Then try to extract address from markdown
       if (sale.markdown) {
-        // Look for patterns like "1234 street name" followed by city, state
-        const addressMatch = sale.markdown.match(/(\d+[^,\n]*(?:drive|dr|road|rd|street|st|avenue|ave|lane|ln|court|ct|boulevard|blvd|circle|cir|way|place|pl)[^,\n]*)/i);
-        if (addressMatch) {
-          const address = addressMatch[1].trim();
-          // Look for city, state in the same line or nearby
-          const cityStateMatch = sale.markdown.match(new RegExp(address + '[^\\n]*,\\s*([^,\\n]+,\\s*[A-Z]{2}(?:\\s+\\d{5})?)'));
-          if (cityStateMatch) {
-            return `${address}, ${cityStateMatch[1]}`;
-          } else {
-            // Default to Michigan if no state found
-            return `${address}, Michigan`;
+        console.log('Extracting address from markdown:', sale.markdown.substring(0, 300));
+        
+        // More specific regex patterns for estate sale addresses
+        const patterns = [
+          // Pattern 1: Street number + street name + city, state zip
+          /(\d+\s+[^,\n]+(?:drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*[,\n]\s*([^,\n]+),?\s*(MI|Michigan)\s*(\d{5})?/i,
+          
+          // Pattern 2: Just street address followed by city on next line
+          /(\d+\s+[^,\n]+(?:drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))[,\s]*\n[^\n]*([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})?/i,
+          
+          // Pattern 3: Address within markdown blocks
+          /(\d+\s+[a-z\s]+(?:drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))[^\n]*\n[^\n]*([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})?/i
+        ];
+        
+        for (const pattern of patterns) {
+          const match = sale.markdown.match(pattern);
+          if (match) {
+            const streetAddress = match[1].trim();
+            const city = match[2] ? match[2].trim() : '';
+            const state = match[3] || 'MI';
+            const zip = match[4] || '';
+            
+            let fullAddress = streetAddress;
+            if (city) {
+              fullAddress += `, ${city}`;
+            }
+            fullAddress += `, ${state}`;
+            if (zip) {
+              fullAddress += ` ${zip}`;
+            }
+            
+            console.log('Extracted address:', fullAddress);
+            return fullAddress;
           }
         }
         
-        // Look for city, state pattern and try to find address nearby
-        const cityStateMatch = sale.markdown.match(/([A-Z][a-z\s]+),\s*(MI|Michigan)\s*(\d{5})?/);
-        if (cityStateMatch) {
-          const beforeCityState = sale.markdown.substring(0, cityStateMatch.index).split('\n').pop();
-          if (beforeCityState && /\d+.*(?:drive|dr|road|rd|street|st|avenue|ave|lane|ln|court|ct|boulevard|blvd|circle|cir|way|place|pl)/i.test(beforeCityState)) {
-            return `${beforeCityState.trim()}, ${cityStateMatch[1]}, ${cityStateMatch[2]}`;
+        // Fallback: look for any address-like pattern with Michigan cities
+        const michiganCities = ['Grand Blanc', 'Burton', 'Davison', 'Lapeer', 'Metamora', 'West Bloomfield', 'North Branch', 'Brighton', 'Imlay City', 'Vassar', 'Flint'];
+        for (const city of michiganCities) {
+          const cityPattern = new RegExp(`(\\d+\\s+[^,\\n]+(?:drive|dr\\.?|road|rd\\.?|street|st\\.?|avenue|ave\\.?|lane|ln\\.?|court|ct\\.?|boulevard|blvd\\.?|circle|cir\\.?|way|place|pl\\.?))[^\\n]*${city}`, 'i');
+          const match = sale.markdown.match(cityPattern);
+          if (match) {
+            const fullAddress = `${match[1].trim()}, ${city}, MI`;
+            console.log('Extracted address with MI city:', fullAddress);
+            return fullAddress;
           }
         }
+        
+        console.log('No address pattern matched');
       }
       
       return null;
