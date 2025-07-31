@@ -120,7 +120,10 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
   }, []);
 
   useEffect(() => {
-    if (isLoadingToken || !mapboxToken || !mapContainer.current || selectedSales.length === 0) return;
+    if (isLoadingToken || !mapboxToken || !mapContainer.current || selectedSales.length === 0) {
+      console.log('Map initialization blocked:', { isLoadingToken, hasToken: !!mapboxToken, hasContainer: !!mapContainer.current, salesCount: selectedSales.length });
+      return;
+    }
 
     // Clean up previous map safely
     if (map.current) {
@@ -145,10 +148,46 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     // Add navigation controls
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
+    const extractAddressFromMarkdown = (sale: EstateSale): string | null => {
+      // First try the address field
+      if (sale.address && sale.address.trim()) {
+        return sale.address.trim();
+      }
+      
+      // Then try to extract address from markdown
+      if (sale.markdown) {
+        // Look for patterns like "1234 street name" followed by city, state
+        const addressMatch = sale.markdown.match(/(\d+[^,\n]*(?:drive|dr|road|rd|street|st|avenue|ave|lane|ln|court|ct|boulevard|blvd|circle|cir|way|place|pl)[^,\n]*)/i);
+        if (addressMatch) {
+          const address = addressMatch[1].trim();
+          // Look for city, state in the same line or nearby
+          const cityStateMatch = sale.markdown.match(new RegExp(address + '[^\\n]*,\\s*([^,\\n]+,\\s*[A-Z]{2}(?:\\s+\\d{5})?)'));
+          if (cityStateMatch) {
+            return `${address}, ${cityStateMatch[1]}`;
+          } else {
+            // Default to Michigan if no state found
+            return `${address}, Michigan`;
+          }
+        }
+        
+        // Look for city, state pattern and try to find address nearby
+        const cityStateMatch = sale.markdown.match(/([A-Z][a-z\s]+),\s*(MI|Michigan)\s*(\d{5})?/);
+        if (cityStateMatch) {
+          const beforeCityState = sale.markdown.substring(0, cityStateMatch.index).split('\n').pop();
+          if (beforeCityState && /\d+.*(?:drive|dr|road|rd|street|st|avenue|ave|lane|ln|court|ct|boulevard|blvd|circle|cir|way|place|pl)/i.test(beforeCityState)) {
+            return `${beforeCityState.trim()}, ${cityStateMatch[1]}, ${cityStateMatch[2]}`;
+          }
+        }
+      }
+      
+      return null;
+    };
+
     const initializeMap = async () => {
       if (!map.current) return;
       
       console.log('Initializing map with', selectedSales.length, 'estate sales');
+      console.log('Selected sales data:', selectedSales);
       
       // Geocode all addresses
       const coordinates: [number, number][] = [];
@@ -157,15 +196,20 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
       
       for (let i = 0; i < selectedSales.length; i++) {
         const sale = selectedSales[i];
-        console.log('Processing sale:', sale.title, 'Address:', sale.address);
+        const extractedAddress = extractAddressFromMarkdown(sale);
         
-        if (!sale.address) {
-          console.warn('Skipping sale without address:', sale.title);
+        console.log('Processing sale:', sale.title);
+        console.log('Original address:', sale.address);
+        console.log('Extracted address:', extractedAddress);
+        console.log('Markdown sample:', sale.markdown?.substring(0, 200));
+        
+        if (!extractedAddress) {
+          console.warn('Skipping sale without valid address:', sale.title);
           continue;
         }
         
-        const coords = await geocodeAddress(sale.address);
-        console.log('Geocoded coordinates for', sale.address, ':', coords);
+        const coords = await geocodeAddress(extractedAddress);
+        console.log('Geocoded coordinates for', extractedAddress, ':', coords);
         
         if (coords) {
           coordinates.push(coords);
@@ -181,7 +225,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
             .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
               `<div class="p-3 max-w-xs">
                 <h3 class="font-semibold text-sm mb-1">${sale.title || 'Estate Sale'}</h3>
-                <p class="text-xs text-gray-600 mb-1">${sale.address}</p>
+                <p class="text-xs text-gray-600 mb-1">${extractedAddress}</p>
                 <p class="text-xs text-gray-500 mb-1">${sale.date || 'Date TBD'}</p>
                 ${sale.company ? `<p class="text-xs text-blue-600">${sale.company}</p>` : ''}
               </div>`
@@ -190,7 +234,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
           
           markers.push(marker);
         } else {
-          console.warn('Failed to geocode address:', sale.address);
+          console.warn('Failed to geocode address:', extractedAddress);
         }
       }
       
