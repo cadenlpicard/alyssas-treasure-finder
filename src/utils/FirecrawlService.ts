@@ -121,68 +121,114 @@ export class FirecrawlService {
     console.log('Raw markdown content:', markdown.substring(0, 500));
     const sales: any[] = [];
     
-    // Look for the pattern of estate sale listings in the markdown
-    // Estate sales typically appear after certain headers and contain specific patterns
-    
-    // Split by lines that contain estate sale links (they start with [![ and contain estatesales.net)
-    const saleBlocks = markdown.split(/(?=\[!\[.*?\]\(https:\/\/picturescdn\.estatesales\.net)/);
+    // Split by image patterns - each estate sale starts with [![
+    const saleBlocks = markdown.split(/(?=\[!\[)/);
     
     console.log(`Found ${saleBlocks.length} potential sale blocks`);
     
     for (let i = 1; i < saleBlocks.length; i++) { // Skip first block (header content)
       const block = saleBlocks[i];
+      
+      // Skip if this doesn't contain estatesales.net URL (not a real sale)
+      if (!block.includes('estatesales.net') || !block.includes('**')) {
+        continue;
+      }
+      
       const sale: any = {};
       
-      // Extract title from markdown - look for **title** pattern
+      // Extract title - look for **title** pattern
       const titleMatch = block.match(/\*\*(.*?)\*\*/);
       if (titleMatch) {
-        sale.title = titleMatch[1].trim();
-      }
-      
-      // Extract URL - look for the final link in the block
-      const urlMatches = block.match(/\]\((https:\/\/www\.estatesales\.net\/[^)]+)\)/g);
-      if (urlMatches && urlMatches.length > 0) {
-        const lastUrl = urlMatches[urlMatches.length - 1];
-        sale.url = lastUrl.replace(/\]\(/, '').replace(/\)$/, '');
-      }
-      
-      // Extract address - look for patterns like "City, State zipcode"
-      const addressMatch = block.match(/([A-Za-z\s]+,\s*MI\s+\d{5})/);
-      if (addressMatch) {
-        sale.address = addressMatch[1].trim();
-      }
-      
-      // Extract date - look for month patterns
-      const dateMatch = block.match(/((?:Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr|May|Jun)\s+\d+(?:,\s+\d+)?)/);
-      if (dateMatch) {
-        sale.date = dateMatch[1].trim();
+        sale.title = titleMatch[1].trim().replace(/\\\\/g, '');
       }
       
       // Extract company - look for "Listed by" pattern
       const companyMatch = block.match(/Listed by ([^\\]+)/);
       if (companyMatch) {
         sale.company = companyMatch[1].trim();
+      } else if (block.includes('Privately Listed Sale')) {
+        sale.company = 'Privately Listed Sale';
       }
       
-      // Extract distance - look for "miles away" pattern
-      const distanceMatch = block.match(/(\d+\s+miles?\s+away|Less than \d+ miles away|Nearby)/);
+      // Extract picture count and last modified
+      const pictureMatch = block.match(/(\d+)\s+Pictures/);
+      if (pictureMatch) {
+        sale.pictureCount = pictureMatch[1];
+      }
+      
+      const modifiedMatch = block.match(/Last modified ([^.]+)/);
+      if (modifiedMatch) {
+        sale.lastModified = modifiedMatch[1].trim();
+      }
+      
+      // Extract address - look for street address patterns
+      const addressLines = block.split('\\\\');
+      let addressFound = false;
+      for (const line of addressLines) {
+        if (line.includes('MI ') && /\d{5}/.test(line)) {
+          sale.address = line.trim();
+          addressFound = true;
+          break;
+        }
+        // Also check for just street addresses without state
+        if (!addressFound && /^\d+\s+[a-zA-Z\s]+(?:rd|drive|dr|street|st|ave|avenue|lane|ln|ct|court|way|blvd|boulevard)/i.test(line.trim())) {
+          sale.streetAddress = line.trim();
+        }
+      }
+      
+      // Extract distance
+      const distanceMatch = block.match(/(\d+\s+miles?\s+away|Less than \d+ miles away|Nearby[^\\]*)/);
       if (distanceMatch) {
         sale.distance = distanceMatch[1].trim();
       }
       
-      // Extract status - look for status indicators
-      const statusMatch = block.match(/(Going on Now!|Starts Tomorrow!|Ends Today!)/);
+      // Extract dates - look for month patterns
+      const dateMatch = block.match(/((?:Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr|May|Jun)\s+\d+(?:,\s+\d+)?(?:,\s*(?:Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr|May|Jun)\s+\d+)*)/);
+      if (dateMatch) {
+        sale.date = dateMatch[1].trim();
+      }
+      
+      // Extract times
+      const timeMatch = block.match(/(\d+(?:am|pm)\s+to\s+\d+(?:am|pm))/);
+      if (timeMatch) {
+        sale.time = timeMatch[1].trim();
+      }
+      
+      // Extract status
+      const statusMatch = block.match(/(Going on Now!|Starts Tomorrow!|Ends Today!|Resuming Today|Starts at)/);
       if (statusMatch) {
         sale.status = statusMatch[1].trim();
+      }
+      
+      // Extract URL - look for the final estatesales.net link
+      const urlMatch = block.match(/\]\((https:\/\/www\.estatesales\.net\/[^)]+)\)/);
+      if (urlMatch) {
+        sale.url = urlMatch[1];
+      }
+      
+      // Extract featured status
+      if (block.includes('Regionally Featured')) {
+        sale.featured = 'Regional';
+      } else if (block.includes('Nationally Featured')) {
+        sale.featured = 'National';
       }
       
       // Store markdown for this sale
       sale.markdown = block;
       
+      // Build a description from available info
+      const descParts = [];
+      if (sale.company) descParts.push(`Listed by ${sale.company}`);
+      if (sale.lastModified) descParts.push(`Last modified ${sale.lastModified}`);
+      if (sale.pictureCount) descParts.push(`${sale.pictureCount} pictures`);
+      if (sale.time) descParts.push(`${sale.time}`);
+      if (sale.status) descParts.push(sale.status);
+      sale.description = descParts.join(' • ');
+      
       // Only add sales that have at least a title
-      if (sale.title) {
+      if (sale.title && sale.title.length > 0) {
         sales.push(sale);
-        console.log(`Parsed sale: ${sale.title} at ${sale.address}`);
+        console.log(`Parsed sale: "${sale.title}" at ${sale.address || sale.streetAddress}`);
       }
     }
     
