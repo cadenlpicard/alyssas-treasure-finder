@@ -60,10 +60,24 @@ export class FirecrawlService {
 
       // Use scrape instead of crawl for single page estate sales listings
       const scrapeResponse = await this.firecrawlApp.scrapeUrl(url, {
-        formats: ['markdown'],
-        onlyMainContent: true,
-        waitFor: 3000, // Wait for content to load
-        blockAds: true
+        formats: ['markdown', 'html'],
+        onlyMainContent: false, // Get full page content
+        waitFor: 8000, // Wait longer for dynamic content
+        blockAds: true,
+        actions: [
+          {
+            type: 'wait',
+            milliseconds: 3000
+          },
+          {
+            type: 'scroll',
+            direction: 'down'
+          },
+          {
+            type: 'wait', 
+            milliseconds: 2000
+          }
+        ]
       });
 
       if (!scrapeResponse.success) {
