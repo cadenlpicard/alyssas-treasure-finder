@@ -36,51 +36,11 @@ interface CrawlResult {
 export const EstateSalesScraper = () => {
   const { toast } = useToast();
   const [url, setUrl] = useState('https://www.estatesales.net/MI/Grand-Blanc');
-  const [apiKeyInput, setApiKeyInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isApiKeyTesting, setIsApiKeyTesting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [crawlResult, setCrawlResult] = useState<CrawlResult | null>(null);
-  const [hasApiKey, setHasApiKey] = useState(!!FirecrawlService.getApiKey());
   const [selectedSales, setSelectedSales] = useState<EstateSale[]>([]);
   const [showRouteMap, setShowRouteMap] = useState(false);
-
-  const handleApiKeySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!apiKeyInput.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter your Firecrawl API key",
-        variant: "destructive",
-        duration: 3000,
-      });
-      return;
-    }
-
-    setIsApiKeyTesting(true);
-    try {
-      const isValid = await FirecrawlService.testApiKey(apiKeyInput);
-      if (isValid) {
-        FirecrawlService.saveApiKey(apiKeyInput);
-        setHasApiKey(true);
-        setApiKeyInput('');
-        toast({
-          title: "Success",
-          description: "API key saved successfully!",
-          duration: 3000,
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Invalid API key. Please check and try again.",
-          variant: "destructive",
-          duration: 3000,
-        });
-      }
-    } finally {
-      setIsApiKeyTesting(false);
-    }
-  };
 
   const handleSaleSelection = (sale: EstateSale, selected: boolean) => {
     if (selected) {
@@ -109,17 +69,6 @@ export const EstateSalesScraper = () => {
     setCrawlResult(null);
     
     try {
-      const apiKey = FirecrawlService.getApiKey();
-      if (!apiKey) {
-        toast({
-          title: "Error",
-          description: "Please set your API key first",
-          variant: "destructive",
-          duration: 3000,
-        });
-        return;
-      }
-
       console.log('Starting crawl for URL:', url);
       
       // Simulate progress for better UX
@@ -167,68 +116,6 @@ export const EstateSalesScraper = () => {
           selectedSales={selectedSales} 
           onClose={() => setShowRouteMap(false)} 
         />
-      </div>
-    );
-  }
-
-  if (!hasApiKey) {
-    return (
-      <div className="w-full max-w-md mx-auto p-8 bg-gradient-to-br from-background to-accent rounded-xl shadow-lg border border-border">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-vintage-gold rounded-full flex items-center justify-center mx-auto mb-4">
-            <Search className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <h3 className="text-xl font-semibold text-foreground mb-2">Setup Required</h3>
-          <p className="text-muted-foreground text-sm">
-            Enter your Firecrawl API key to start scraping estate sales
-          </p>
-        </div>
-        
-        <form onSubmit={handleApiKeySubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="apiKey" className="text-sm font-medium text-foreground">
-              Firecrawl API Key
-            </label>
-            <Input
-              id="apiKey"
-              type="password"
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-              placeholder="fc-..."
-              className="transition-all duration-200"
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Get your API key from{' '}
-              <a 
-                href="https://firecrawl.dev" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                firecrawl.dev
-              </a>
-            </p>
-          </div>
-          
-          <Button 
-            type="submit" 
-            disabled={isApiKeyTesting || !apiKeyInput.trim()}
-            className="w-full"
-          >
-            {isApiKeyTesting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Testing API Key...
-              </>
-            ) : (
-              <>
-                <Key className="w-4 h-4 mr-2" />
-                Save API Key
-              </>
-            )}
-          </Button>
-        </form>
       </div>
     );
   }

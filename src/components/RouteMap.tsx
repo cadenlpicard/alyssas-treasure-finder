@@ -3,10 +3,10 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Route, Clock, Navigation } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from '@/integrations/supabase/client';
 
 interface EstateSale {
   title?: string;
@@ -29,29 +29,40 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapboxToken, setMapboxToken] = useState('');
-  const [hasToken, setHasToken] = useState(false);
+  const [isLoadingToken, setIsLoadingToken] = useState(true);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [routeInfo, setRouteInfo] = useState<{distance: string, duration: string} | null>(null);
   const { toast } = useToast();
 
-  const handleTokenSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mapboxToken.trim()) {
+  // Get Mapbox token from Supabase edge function
+  const getMapboxToken = async () => {
+    try {
+      setIsLoadingToken(true);
+      const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+      
+      if (error) {
+        console.error('Error getting Mapbox token:', error);
+        toast({
+          title: "Error",
+          description: "Failed to get Mapbox token from server",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (data?.token) {
+        setMapboxToken(data.token);
+      }
+    } catch (error) {
+      console.error('Error fetching Mapbox token:', error);
       toast({
         title: "Error",
-        description: "Please enter your Mapbox token",
+        description: "Failed to fetch Mapbox token",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsLoadingToken(false);
     }
-    
-    // Save token to localStorage for future use
-    localStorage.setItem('mapbox_token', mapboxToken);
-    setHasToken(true);
-    toast({
-      title: "Success",
-      description: "Mapbox token saved successfully!",
-    });
   };
 
   // Geocoding function to convert addresses to coordinates
@@ -105,16 +116,11 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
   };
 
   useEffect(() => {
-    // Check for saved token
-    const savedToken = localStorage.getItem('mapbox_token');
-    if (savedToken) {
-      setMapboxToken(savedToken);
-      setHasToken(true);
-    }
+    getMapboxToken();
   }, []);
 
   useEffect(() => {
-    if (!hasToken || !mapContainer.current || selectedSales.length === 0) return;
+    if (isLoadingToken || !mapboxToken || !mapContainer.current || selectedSales.length === 0) return;
 
     // Initialize map
     mapboxgl.accessToken = mapboxToken;
@@ -245,54 +251,13 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     return () => {
       map.current?.remove();
     };
-  }, [hasToken, selectedSales, mapboxToken]);
+  }, [isLoadingToken, selectedSales, mapboxToken]);
 
-  if (!hasToken) {
+  if (isLoadingToken) {
     return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-vintage-gold" />
-            Setup Required
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleTokenSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="mapboxToken" className="text-sm font-medium">
-                Mapbox Access Token
-              </label>
-              <Input
-                id="mapboxToken"
-                type="password"
-                value={mapboxToken}
-                onChange={(e) => setMapboxToken(e.target.value)}
-                placeholder="pk.ey..."
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Get your token from{' '}
-                <a 
-                  href="https://mapbox.com" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  mapbox.com
-                </a>
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" className="flex-1">
-                Save Token
-              </Button>
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+      <div className="w-full max-w-md mx-auto p-8 text-center">
+        <p className="text-muted-foreground">Loading map...</p>
+      </div>
     );
   }
 

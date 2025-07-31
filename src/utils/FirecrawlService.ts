@@ -1,97 +1,46 @@
-import FirecrawlApp from '@mendable/firecrawl-js';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ErrorResponse {
   success: false;
   error: string;
 }
 
-interface CrawlStatusResponse {
+interface ScrapeResponse {
   success: true;
-  status: string;
-  completed: number;
-  total: number;
-  creditsUsed: number;
-  expiresAt: string;
-  data: any[];
+  data: any;
 }
 
-type CrawlResponse = CrawlStatusResponse | ErrorResponse;
+type FirecrawlResponse = ScrapeResponse | ErrorResponse;
 
 export class FirecrawlService {
-  private static API_KEY_STORAGE_KEY = 'firecrawl_api_key';
-  private static firecrawlApp: FirecrawlApp | null = null;
-
-  static saveApiKey(apiKey: string): void {
-    localStorage.setItem(this.API_KEY_STORAGE_KEY, apiKey);
-    this.firecrawlApp = new FirecrawlApp({ apiKey });
-    console.log('API key saved successfully');
-  }
-
-  static getApiKey(): string | null {
-    return localStorage.getItem(this.API_KEY_STORAGE_KEY);
-  }
-
-  static async testApiKey(apiKey: string): Promise<boolean> {
-    try {
-      console.log('Testing API key with Firecrawl API');
-      this.firecrawlApp = new FirecrawlApp({ apiKey });
-      // A simple test crawl to verify the API key
-      const testResponse = await this.firecrawlApp.crawlUrl('https://example.com', {
-        limit: 1
-      });
-      return testResponse.success;
-    } catch (error) {
-      console.error('Error testing API key:', error);
-      return false;
-    }
-  }
-
   static async crawlWebsite(url: string): Promise<{ success: boolean; error?: string; data?: any }> {
-    const apiKey = this.getApiKey();
-    if (!apiKey) {
-      return { success: false, error: 'API key not found' };
-    }
-
     try {
-      console.log('Making scrape request to Firecrawl API for:', url);
-      if (!this.firecrawlApp) {
-        this.firecrawlApp = new FirecrawlApp({ apiKey });
-      }
-
-      // Use scrape instead of crawl for single page estate sales listings
-      const scrapeResponse = await this.firecrawlApp.scrapeUrl(url, {
-        formats: ['markdown', 'html'],
-        onlyMainContent: false, // Get full page content
-        waitFor: 8000, // Wait longer for dynamic content
-        blockAds: true,
-        actions: [
-          {
-            type: 'wait',
-            milliseconds: 3000
-          },
-          {
-            type: 'scroll',
-            direction: 'down'
-          },
-          {
-            type: 'wait', 
-            milliseconds: 2000
-          }
-        ]
+      console.log('Making scrape request via Supabase edge function for:', url);
+      
+      const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
+        body: { url }
       });
 
-      if (!scrapeResponse.success) {
-        console.error('Scrape failed:', scrapeResponse.error);
+      if (error) {
+        console.error('Edge function error:', error);
         return { 
           success: false, 
-          error: scrapeResponse.error || 'Failed to scrape website' 
+          error: error.message || 'Failed to call Firecrawl service' 
         };
       }
 
-      console.log('Scrape successful:', scrapeResponse);
+      if (!data.success) {
+        console.error('Scrape failed:', data.error);
+        return { 
+          success: false, 
+          error: data.error || 'Failed to scrape website' 
+        };
+      }
+
+      console.log('Scrape successful via edge function');
       
       // Parse estate sales from the markdown content
-      const parsedSales = this.parseEstateSales(scrapeResponse.markdown || '');
+      const parsedSales = this.parseEstateSales(data.data.markdown || '');
       
       // Convert scrape response to match expected crawl format
       const formattedData = {
@@ -112,7 +61,7 @@ export class FirecrawlService {
       console.error('Error during scrape:', error);
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Failed to connect to Firecrawl API' 
+        error: error instanceof Error ? error.message : 'Failed to connect to Firecrawl service' 
       };
     }
   }
