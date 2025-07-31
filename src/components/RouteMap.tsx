@@ -122,9 +122,13 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
   useEffect(() => {
     if (isLoadingToken || !mapboxToken || !mapContainer.current || selectedSales.length === 0) return;
 
-    // Clean up previous map
+    // Clean up previous map safely
     if (map.current) {
-      map.current.remove();
+      try {
+        map.current.remove();
+      } catch (error) {
+        console.warn('Error removing previous map:', error);
+      }
       map.current = null;
     }
 
@@ -276,7 +280,11 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
 
     return () => {
       if (map.current) {
-        map.current.remove();
+        try {
+          map.current.remove();
+        } catch (error) {
+          console.warn('Error cleaning up map:', error);
+        }
         map.current = null;
       }
     };
