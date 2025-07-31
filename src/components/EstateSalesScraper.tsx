@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { FirecrawlService } from '@/utils/FirecrawlService';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Key, Loader2, Sparkles } from 'lucide-react';
 import { EstateSaleCard } from './EstateSaleCard';
 import { RouteMap } from './RouteMap';
 
@@ -35,8 +35,9 @@ interface CrawlResult {
 export const EstateSalesScraper = () => {
   const { toast } = useToast();
   const [url, setUrl] = useState('https://www.estatesales.net/MI/Grand-Blanc');
-  const [apiKey, setApiKey] = useState('');
+  const [apiKeyInput, setApiKeyInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isApiKeyTesting, setIsApiKeyTesting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [crawlResult, setCrawlResult] = useState<CrawlResult | null>(null);
   const [hasApiKey, setHasApiKey] = useState(!!FirecrawlService.getApiKey());
@@ -45,7 +46,7 @@ export const EstateSalesScraper = () => {
 
   const handleApiKeySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!apiKey.trim()) {
+    if (!apiKeyInput.trim()) {
       toast({
         title: "Error",
         description: "Please enter your Firecrawl API key",
@@ -55,23 +56,28 @@ export const EstateSalesScraper = () => {
       return;
     }
 
-    const isValid = await FirecrawlService.testApiKey(apiKey);
-    if (isValid) {
-      FirecrawlService.saveApiKey(apiKey);
-      setHasApiKey(true);
-      setApiKey('');
-      toast({
-        title: "Success",
-        description: "API key saved successfully!",
-        duration: 3000,
-      });
-    } else {
-      toast({
-        title: "Error",
-        description: "Invalid API key. Please check and try again.",
-        variant: "destructive",
-        duration: 3000,
-      });
+    setIsApiKeyTesting(true);
+    try {
+      const isValid = await FirecrawlService.testApiKey(apiKeyInput);
+      if (isValid) {
+        FirecrawlService.saveApiKey(apiKeyInput);
+        setHasApiKey(true);
+        setApiKeyInput('');
+        toast({
+          title: "Success",
+          description: "API key saved successfully!",
+          duration: 3000,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Invalid API key. Please check and try again.",
+          variant: "destructive",
+          duration: 3000,
+        });
+      }
+    } finally {
+      setIsApiKeyTesting(false);
     }
   };
 
@@ -185,8 +191,8 @@ export const EstateSalesScraper = () => {
             <Input
               id="apiKey"
               type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
               placeholder="fc-..."
               className="transition-all duration-200"
               required
@@ -204,8 +210,22 @@ export const EstateSalesScraper = () => {
             </p>
           </div>
           
-          <Button type="submit" variant="vintage" className="w-full">
-            Save API Key
+          <Button 
+            type="submit" 
+            disabled={isApiKeyTesting || !apiKeyInput.trim()}
+            className="w-full"
+          >
+            {isApiKeyTesting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Testing API Key...
+              </>
+            ) : (
+              <>
+                <Key className="w-4 h-4 mr-2" />
+                Save API Key
+              </>
+            )}
           </Button>
         </form>
       </div>
@@ -213,54 +233,71 @@ export const EstateSalesScraper = () => {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-8 bg-gradient-to-br from-background to-accent rounded-xl shadow-lg border border-border">
-      <div className="text-center mb-8">
-        <div className="w-20 h-20 bg-gradient-to-br from-vintage-gold to-estate-red rounded-full flex items-center justify-center mx-auto mb-4">
-          <MapPin className="w-10 h-10 text-primary-foreground" />
-        </div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">Estate Sales Finder</h2>
-        <p className="text-muted-foreground">
-          Discover hidden treasures at Michigan estate sales
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6 mb-8">
-        <div className="space-y-2">
-          <label htmlFor="url" className="text-sm font-medium text-foreground flex items-center gap-2">
-            <Search className="w-4 h-4" />
-            Estate Sales Website URL
-          </label>
-          <Input
-            id="url"
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className="transition-all duration-200"
-            placeholder="https://www.estatesales.net/MI/Grand-Blanc"
-            required
-          />
-        </div>
-        
-        {isLoading && (
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Scraping estate sales...</span>
-              <span>{progress}%</span>
-            </div>
-            <Progress value={progress} className="w-full" />
+    <div className="p-8 md:p-12">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12 animate-fade-in">
+          <div className="w-24 h-24 bg-gradient-to-br from-primary to-primary/70 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl ring-4 ring-primary/20">
+            <Sparkles className="w-12 h-12 text-primary-foreground" />
           </div>
-        )}
-        
-        <Button
-          type="submit"
-          disabled={isLoading}
-          variant="vintage"
-          size="lg"
-          className="w-full"
-        >
-          {isLoading ? "Finding Treasures..." : "Scrape Estate Sales"}
-        </Button>
-      </form>
+          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Estate Sales Finder</h2>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            Discover hidden treasures at Michigan estate sales with intelligent route planning
+          </p>
+        </div>
+
+        {/* Scraping Form */}
+        <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-8 mb-8 shadow-lg animate-scale-in">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-3">
+              <label htmlFor="url" className="text-lg font-medium text-foreground flex items-center gap-3">
+                <Search className="w-5 h-5 text-primary" />
+                Estate Sales Website URL
+              </label>
+              <Input
+                id="url"
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                className="h-14 text-lg border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
+                placeholder="https://www.estatesales.net/MI/Grand-Blanc"
+                required
+              />
+            </div>
+            
+            {isLoading && (
+              <div className="space-y-3 animate-fade-in">
+                <div className="flex justify-between text-sm font-medium text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Finding estate sales...
+                  </span>
+                  <span>{progress}%</span>
+                </div>
+                <Progress value={progress} className="w-full h-2 bg-muted/50" />
+              </div>
+            )}
+            
+            <Button
+              type="submit"
+              disabled={isLoading}
+              size="lg"
+              className="w-full h-14 text-lg bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover-scale"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                  Finding Treasures...
+                </>
+              ) : (
+                <>
+                  <Search className="w-5 h-5 mr-3" />
+                  Discover Estate Sales
+                </>
+              )}
+            </Button>
+          </form>
+        </div>
 
       {crawlResult && (
         <Card className="border-vintage-gold/30 bg-card/50 backdrop-blur">
@@ -371,6 +408,7 @@ export const EstateSalesScraper = () => {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 };
