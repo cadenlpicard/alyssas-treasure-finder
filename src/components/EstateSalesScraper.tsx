@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { FirecrawlService } from '@/utils/FirecrawlService';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Key, Loader2, Sparkles } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Loader2, Sparkles } from 'lucide-react';
 import { EstateSaleCard } from './EstateSaleCard';
 import { RouteMap } from './RouteMap';
 import { LocationInput } from './LocationInput';
