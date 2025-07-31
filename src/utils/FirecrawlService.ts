@@ -118,84 +118,75 @@ export class FirecrawlService {
   }
 
   static parseEstateSales(markdown: string): any[] {
+    console.log('Raw markdown content:', markdown.substring(0, 500));
     const sales: any[] = [];
     
-    // Split the markdown by estate sale entries
-    // Look for patterns like sale titles, addresses, and dates
-    const lines = markdown.split('\n');
-    let currentSale: any = {};
-    let inSaleBlock = false;
+    // Look for the pattern of estate sale listings in the markdown
+    // Estate sales typically appear after certain headers and contain specific patterns
     
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+    // Split by lines that contain estate sale links (they start with [![ and contain estatesales.net)
+    const saleBlocks = markdown.split(/(?=\[!\[.*?\]\(https:\/\/picturescdn\.estatesales\.net)/);
+    
+    console.log(`Found ${saleBlocks.length} potential sale blocks`);
+    
+    for (let i = 1; i < saleBlocks.length; i++) { // Skip first block (header content)
+      const block = saleBlocks[i];
+      const sale: any = {};
       
-      // Skip empty lines and headers
-      if (!line || line.startsWith('#') || line.startsWith('![') || line.includes('EstateSales.NET')) {
-        continue;
+      // Extract title from markdown - look for **title** pattern
+      const titleMatch = block.match(/\*\*(.*?)\*\*/);
+      if (titleMatch) {
+        sale.title = titleMatch[1].trim();
       }
       
-      // Look for estate sale entries - they often start with image links or have sale patterns
-      if (line.includes('[![') || line.includes('**') && line.includes('Sale')) {
-        // If we have a current sale, save it
-        if (currentSale.title && currentSale.address) {
-          sales.push({ ...currentSale });
-        }
-        
-        // Start new sale
-        currentSale = {};
-        inSaleBlock = true;
-        
-        // Extract title from markdown link
-        const titleMatch = line.match(/\*\*(.*?)\*\*/);
-        if (titleMatch) {
-          currentSale.title = titleMatch[1];
-        }
-        
-        // Extract URL from markdown link
-        const urlMatch = line.match(/\]\((.*?)\)/);
-        if (urlMatch) {
-          currentSale.url = urlMatch[1];
-        }
+      // Extract URL - look for the final link in the block
+      const urlMatches = block.match(/\]\((https:\/\/www\.estatesales\.net\/[^)]+)\)/g);
+      if (urlMatches && urlMatches.length > 0) {
+        const lastUrl = urlMatches[urlMatches.length - 1];
+        sale.url = lastUrl.replace(/\]\(/, '').replace(/\)$/, '');
       }
       
-      // Look for addresses (contain MI and numbers)
-      if (line.includes('MI ') && /\d{5}/.test(line)) {
-        const addressMatch = line.match(/(.*?MI \d{5})/);
-        if (addressMatch) {
-          currentSale.address = addressMatch[1].trim();
-        }
+      // Extract address - look for patterns like "City, State zipcode"
+      const addressMatch = block.match(/([A-Za-z\s]+,\s*MI\s+\d{5})/);
+      if (addressMatch) {
+        sale.address = addressMatch[1].trim();
       }
       
-      // Look for dates
-      if (line.includes('Jul') || line.includes('Aug') || line.includes('Sep')) {
-        currentSale.date = line;
+      // Extract date - look for month patterns
+      const dateMatch = block.match(/((?:Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr|May|Jun)\s+\d+(?:,\s+\d+)?)/);
+      if (dateMatch) {
+        sale.date = dateMatch[1].trim();
       }
       
-      // Look for company info
-      if (line.includes('Listed by')) {
-        const companyMatch = line.match(/Listed by (.*)/);
-        if (companyMatch) {
-          currentSale.company = companyMatch[1];
-        }
+      // Extract company - look for "Listed by" pattern
+      const companyMatch = block.match(/Listed by ([^\\]+)/);
+      if (companyMatch) {
+        sale.company = companyMatch[1].trim();
       }
       
-      // Look for distances
-      if (line.includes('miles away') || line.includes('Nearby')) {
-        currentSale.distance = line;
+      // Extract distance - look for "miles away" pattern
+      const distanceMatch = block.match(/(\d+\s+miles?\s+away|Less than \d+ miles away|Nearby)/);
+      if (distanceMatch) {
+        sale.distance = distanceMatch[1].trim();
       }
       
-      // Store the full markdown for this sale
-      if (inSaleBlock) {
-        currentSale.markdown = (currentSale.markdown || '') + line + '\n';
+      // Extract status - look for status indicators
+      const statusMatch = block.match(/(Going on Now!|Starts Tomorrow!|Ends Today!)/);
+      if (statusMatch) {
+        sale.status = statusMatch[1].trim();
+      }
+      
+      // Store markdown for this sale
+      sale.markdown = block;
+      
+      // Only add sales that have at least a title
+      if (sale.title) {
+        sales.push(sale);
+        console.log(`Parsed sale: ${sale.title} at ${sale.address}`);
       }
     }
     
-    // Add the last sale if it exists
-    if (currentSale.title && currentSale.address) {
-      sales.push(currentSale);
-    }
-    
-    console.log(`Parsed ${sales.length} estate sales from markdown`);
+    console.log(`Successfully parsed ${sales.length} estate sales`);
     return sales;
   }
 }
