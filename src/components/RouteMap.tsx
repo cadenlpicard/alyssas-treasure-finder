@@ -83,18 +83,32 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     }
   };
 
-  // Calculate optimized route
+  // Calculate optimized route using Mapbox Optimization API (TSP solver)
   const calculateOptimizedRoute = async (coordinates: [number, number][]) => {
     if (coordinates.length < 2) return null;
     
     setIsLoadingRoute(true);
     try {
-      // For Mapbox Optimization API, we need at least 2 points
+      // Use driving-traffic profile for real-time traffic awareness
       const waypoints = coordinates.map(coord => coord.join(',')).join(';');
       
       const response = await fetch(
-        `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${waypoints}?access_token=${mapboxToken}&overview=full&steps=true&geometries=geojson`
+        `https://api.mapbox.com/optimized-trips/v1/mapbox/driving-traffic/${waypoints}?` +
+        `access_token=${mapboxToken}&` +
+        `overview=full&` +
+        `steps=true&` +
+        `geometries=geojson&` +
+        `annotations=distance,duration&` +
+        `source=first&` +  // Start from first coordinate
+        `destination=last`  // End at last coordinate (return to start)
       );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Optimization API error:', errorData);
+        throw new Error(errorData.message || 'Failed to calculate route');
+      }
+      
       const data = await response.json();
       
       if (data.trips && data.trips[0]) {
@@ -103,12 +117,18 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
           geometry: trip.geometry,
           distance: (trip.distance / 1609.34).toFixed(1), // Convert to miles
           duration: Math.round(trip.duration / 60), // Convert to minutes
-          waypoints: trip.waypoints
+          waypoints: trip.waypoints,
+          legs: trip.legs || []
         };
       }
       return null;
     } catch (error) {
       console.error('Route calculation error:', error);
+      toast({
+        title: "Route Error",
+        description: "Failed to calculate optimal route. Showing direct connections instead.",
+        variant: "destructive",
+      });
       return null;
     } finally {
       setIsLoadingRoute(false);
