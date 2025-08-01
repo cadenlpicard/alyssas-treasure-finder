@@ -37,6 +37,8 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
   const [startingAddress, setStartingAddress] = useState('');
   const [startingCoords, setStartingCoords] = useState<[number, number] | null>(null);
   const [isGeocodingStart, setIsGeocodingStart] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<Array<{text: string, place_name: string, center: [number, number]}>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const { toast } = useToast();
 
   // Get Mapbox token from Supabase edge function
@@ -86,6 +88,79 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
       console.error('Geocoding error:', error);
       return null;
     }
+  };
+
+  // Autocomplete function for starting address
+  const searchAddressSuggestions = async (query: string) => {
+    if (!query.trim() || query.length < 3) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
+        `access_token=${mapboxToken}&` +
+        `country=us&` +
+        `proximity=-83.6129,42.9270&` +
+        `autocomplete=true&` +
+        `limit=5`
+      );
+      
+      const data = await response.json();
+      
+      if (data.features && data.features.length > 0) {
+        const suggestions = data.features.map((feature: any) => ({
+          text: feature.text,
+          place_name: feature.place_name,
+          center: feature.center
+        }));
+        setAddressSuggestions(suggestions);
+        setShowSuggestions(true);
+      } else {
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch (error) {
+      console.error('Address search error:', error);
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  // Handle suggestion selection
+  const handleSuggestionSelect = (suggestion: {text: string, place_name: string, center: [number, number]}) => {
+    setStartingAddress(suggestion.place_name);
+    setStartingCoords(suggestion.center);
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+    toast({
+      title: "Success",
+      description: "Starting address added to route",
+    });
+  };
+
+  // Handle input change with debouncing
+  const handleAddressInputChange = (value: string) => {
+    setStartingAddress(value);
+    
+    // Clear existing coords if input is changed
+    if (startingCoords) {
+      setStartingCoords(null);
+    }
+    
+    // Clear previous suggestions if input is too short
+    if (value.length < 3) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    
+    // Debounce the search
+    setTimeout(() => {
+      searchAddressSuggestions(value);
+    }, 300);
   };
 
   // Add starting address functionality
@@ -517,7 +592,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
       )}
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
-        <div className="md:col-span-2">
+        <div className="md:col-span-2 relative">
           <Label htmlFor="starting-address" className="text-sm font-medium">
             Starting Address (Optional)
           </Label>
@@ -526,10 +601,34 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
             type="text"
             placeholder="Enter your starting address..."
             value={startingAddress}
-            onChange={(e) => setStartingAddress(e.target.value)}
+            onChange={(e) => handleAddressInputChange(e.target.value)}
             className="mt-1"
+            onFocus={() => {
+              if (addressSuggestions.length > 0) setShowSuggestions(true);
+            }}
+            onBlur={() => {
+              // Delay hiding suggestions to allow for clicks
+              setTimeout(() => setShowSuggestions(false), 200);
+            }}
             onKeyPress={(e) => e.key === 'Enter' && handleAddStartingAddress()}
           />
+          
+          {/* Autocomplete suggestions dropdown */}
+          {showSuggestions && addressSuggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
+              {addressSuggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex flex-col"
+                  onClick={() => handleSuggestionSelect(suggestion)}
+                >
+                  <span className="font-medium">{suggestion.text}</span>
+                  <span className="text-xs text-muted-foreground">{suggestion.place_name}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex items-end">
           <Button 
