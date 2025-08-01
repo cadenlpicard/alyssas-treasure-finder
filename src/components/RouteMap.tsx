@@ -223,11 +223,19 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
         overview: 'full',
         steps: 'true',
         geometries: 'geojson',
-        annotations: 'distance,duration',
-        roundtrip: includeStart && startingCoords ? 'true' : 'false',
-        source: includeStart && startingCoords ? 'first' : 'any',
-        destination: includeStart && startingCoords ? 'first' : 'any'
+        annotations: 'distance,duration'
       });
+
+      // Add roundtrip and source/destination parameters correctly
+      if (includeStart && startingCoords) {
+        params.append('roundtrip', 'true');
+        params.append('source', 'first');
+        params.append('destination', 'last'); // Must be 'last' for roundtrip, not 'first'
+      } else {
+        params.append('roundtrip', 'false');
+        params.append('source', 'any');
+        params.append('destination', 'any');
+      }
       
       const response = await fetch(
         `https://api.mapbox.com/optimized-trips/v1/mapbox/driving-traffic/${waypoints}?${params.toString()}`
