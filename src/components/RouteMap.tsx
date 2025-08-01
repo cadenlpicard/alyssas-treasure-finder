@@ -206,6 +206,11 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
   const generateDirections = (waypoints: any[], sales: EstateSale[], includeStart: boolean) => {
     const directions: Array<{title: string, address: string, coords: [number, number], googleMapsUrl: string}> = [];
     
+    // Safety check for waypoints
+    if (!waypoints || !Array.isArray(waypoints)) {
+      console.warn('Invalid waypoints provided to generateDirections');
+      return directions;
+    }
     // Add starting point if included
     if (includeStart && startingCoords) {
       directions.push({
@@ -288,6 +293,38 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     return null;
   };
 
+  // Create fallback directions when waypoints are not available from API
+  const createFallbackDirections = (coordinates: [number, number][], sales: EstateSale[], includeStart: boolean) => {
+    const directions: Array<{title: string, address: string, coords: [number, number], googleMapsUrl: string}> = [];
+    
+    // Add starting point if included
+    if (includeStart && startingCoords) {
+      directions.push({
+        title: 'Starting Point',
+        address: startingAddress,
+        coords: startingCoords,
+        googleMapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${startingCoords[1]},${startingCoords[0]}&travelmode=driving`
+      });
+    }
+    
+    // Add each sale location in the order they were geocoded
+    sales.forEach((sale, index) => {
+      if (index < coordinates.length) {
+        const coords = coordinates[index];
+        const address = extractAddressFromSale(sale);
+        
+        directions.push({
+          title: sale.title || 'Estate Sale',
+          address: address || 'Address not found',
+          coords: coords,
+          googleMapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${coords[1]},${coords[0]}&travelmode=driving`
+        });
+      }
+    });
+    
+    return directions;
+  };
+
   // Calculate optimized route using Mapbox Optimization API (TSP solver)
   const calculateOptimizedRoute = async (coordinates: [number, number][], salesData: EstateSale[], includeStart: boolean = false) => {
     let routeCoords = [...coordinates];
@@ -340,8 +377,16 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
         const trip = data.trips[0];
         
         // Generate directions from the optimized waypoints and sales data
-        const directions = generateDirections(trip.waypoints, salesData, includeStart);
-        setRouteDirections(directions);
+        // Check if waypoints exist and are valid
+        if (trip.waypoints && Array.isArray(trip.waypoints)) {
+          const directions = generateDirections(trip.waypoints, salesData, includeStart);
+          setRouteDirections(directions);
+        } else {
+          console.warn('No valid waypoints returned from optimization API');
+          // Create fallback directions from coordinates and sales data
+          const fallbackDirections = createFallbackDirections(coordinates, salesData, includeStart);
+          setRouteDirections(fallbackDirections);
+        }
         
         return {
           geometry: trip.geometry,
