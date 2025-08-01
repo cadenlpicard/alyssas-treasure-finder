@@ -255,8 +255,9 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     const initializeMap = async () => {
       if (!map.current) return;
       
-      console.log('Initializing map with', selectedSales.length, 'estate sales');
-      console.log('Selected sales data:', selectedSales);
+      console.log('=== INITIALIZING MAP ===');
+      console.log('Number of selected sales:', selectedSales.length);
+      console.log('All selected sales:', selectedSales);
       
       // Geocode all addresses
       const coordinates: [number, number][] = [];
@@ -265,20 +266,27 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
       
       for (let i = 0; i < selectedSales.length; i++) {
         const sale = selectedSales[i];
-        const extractedAddress = extractAddressFromMarkdown(sale);
+        console.log(`\n--- PROCESSING SALE ${i + 1}/${selectedSales.length} ---`);
+        console.log('Sale title:', sale.title);
+        console.log('Sale address field:', sale.address);
+        console.log('Sale company:', sale.company);
+        console.log('Sale markdown length:', sale.markdown?.length || 0);
         
-        console.log('Processing sale:', sale.title);
-        console.log('Original address:', sale.address);
-        console.log('Extracted address:', extractedAddress);
-        console.log('Markdown sample:', sale.markdown?.substring(0, 200));
+        if (sale.markdown) {
+          console.log('Markdown preview (first 500 chars):', sale.markdown.substring(0, 500));
+        }
+        
+        const extractedAddress = extractAddressFromMarkdown(sale);
+        console.log('✓ Extracted address:', extractedAddress);
         
         if (!extractedAddress) {
-          console.warn('Skipping sale without valid address:', sale.title);
+          console.error(`❌ FAILED to extract address for sale: ${sale.title}`);
           continue;
         }
         
+        console.log('🌐 Geocoding address:', extractedAddress);
         const coords = await geocodeAddress(extractedAddress);
-        console.log('Geocoded coordinates for', extractedAddress, ':', coords);
+        console.log('📍 Geocoded result:', coords);
         
         if (coords) {
           coordinates.push(coords);
