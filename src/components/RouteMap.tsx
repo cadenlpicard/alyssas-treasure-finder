@@ -4,7 +4,9 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Route, Clock, Navigation } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { MapPin, Route, Clock, Navigation, Plus } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 
@@ -32,6 +34,9 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
   const [isLoadingToken, setIsLoadingToken] = useState(true);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [routeInfo, setRouteInfo] = useState<{distance: string, duration: string} | null>(null);
+  const [startingAddress, setStartingAddress] = useState('');
+  const [startingCoords, setStartingCoords] = useState<[number, number] | null>(null);
+  const [isGeocodingStart, setIsGeocodingStart] = useState(false);
   const { toast } = useToast();
 
   // Get Mapbox token from Supabase edge function
@@ -83,24 +88,74 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     }
   };
 
+  // Add starting address functionality
+  const handleAddStartingAddress = async () => {
+    if (!startingAddress.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a starting address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeocodingStart(true);
+    try {
+      const coords = await geocodeAddress(startingAddress);
+      if (coords) {
+        setStartingCoords(coords);
+        toast({
+          title: "Success",
+          description: "Starting address added to route",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Could not find the starting address",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to geocode starting address",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeocodingStart(false);
+    }
+  };
+
   // Calculate optimized route using Mapbox Optimization API (TSP solver)
-  const calculateOptimizedRoute = async (coordinates: [number, number][]) => {
-    if (coordinates.length < 2) return null;
+  const calculateOptimizedRoute = async (coordinates: [number, number][], includeStart: boolean = false) => {
+    let routeCoords = [...coordinates];
+    
+    // Add starting address as first coordinate if provided
+    if (includeStart && startingCoords) {
+      routeCoords = [startingCoords, ...coordinates];
+    }
+    
+    if (routeCoords.length < 2) return null;
     
     setIsLoadingRoute(true);
     try {
       // Use driving-traffic profile for real-time traffic awareness
-      const waypoints = coordinates.map(coord => coord.join(',')).join(';');
+      const waypoints = routeCoords.map(coord => coord.join(',')).join(';');
+      
+      // Configure optimization parameters based on Mapbox documentation
+      const params = new URLSearchParams({
+        access_token: mapboxToken,
+        overview: 'full',
+        steps: 'true',
+        geometries: 'geojson',
+        annotations: 'distance,duration',
+        roundtrip: includeStart && startingCoords ? 'true' : 'false',
+        source: includeStart && startingCoords ? 'first' : 'any',
+        destination: includeStart && startingCoords ? 'first' : 'any'
+      });
       
       const response = await fetch(
-        `https://api.mapbox.com/optimized-trips/v1/mapbox/driving-traffic/${waypoints}?` +
-        `access_token=${mapboxToken}&` +
-        `overview=full&` +
-        `steps=true&` +
-        `geometries=geojson&` +
-        `annotations=distance,duration&` +
-        `source=first&` +  // Start from first coordinate
-        `destination=last`  // End at last coordinate (return to start)
+        `https://api.mapbox.com/optimized-trips/v1/mapbox/driving-traffic/${waypoints}?${params.toString()}`
       );
       
       if (!response.ok) {
@@ -293,7 +348,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
           // Create custom marker
           const el = document.createElement('div');
           el.className = 'w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm border-2 border-background shadow-lg cursor-pointer';
-          el.textContent = (coordinates.length + 1).toString();
+          el.textContent = coordinates.length.toString();
           
           const marker = new mapboxgl.Marker(el)
             .setLngLat(coords)
@@ -315,10 +370,29 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
       
       console.log('Found', coordinates.length, 'valid coordinates');
       
+      // Add starting address marker if provided
+      if (startingCoords) {
+        const startEl = document.createElement('div');
+        startEl.className = 'w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-background shadow-lg cursor-pointer';
+        startEl.innerHTML = '🏠';
+        
+        const startMarker = new mapboxgl.Marker(startEl)
+          .setLngLat(startingCoords)
+          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
+            `<div class="p-3 max-w-xs">
+              <h3 class="font-semibold text-sm mb-1">Starting Point</h3>
+              <p class="text-xs text-gray-600">${startingAddress}</p>
+            </div>`
+          ))
+          .addTo(map.current!);
+        
+        markers.push(startMarker);
+      }
+
       if (coordinates.length > 1) {
         console.log('Calculating optimized route for', coordinates.length, 'points');
-        // Calculate and display optimized route
-        const routeData = await calculateOptimizedRoute(coordinates);
+        // Calculate and display optimized route with or without starting address
+        const routeData = await calculateOptimizedRoute(coordinates, !!startingCoords);
         
         if (routeData && map.current) {
           console.log('Route calculated successfully:', routeData);
@@ -407,7 +481,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
         map.current = null;
       }
     };
-  }, [isLoadingToken, selectedSales, mapboxToken]);
+  }, [isLoadingToken, selectedSales, mapboxToken, startingCoords]);
 
   if (isLoadingToken) {
     return (
@@ -442,6 +516,58 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
         </div>
       )}
       
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+        <div className="md:col-span-2">
+          <Label htmlFor="starting-address" className="text-sm font-medium">
+            Starting Address (Optional)
+          </Label>
+          <Input
+            id="starting-address"
+            type="text"
+            placeholder="Enter your starting address..."
+            value={startingAddress}
+            onChange={(e) => setStartingAddress(e.target.value)}
+            className="mt-1"
+            onKeyPress={(e) => e.key === 'Enter' && handleAddStartingAddress()}
+          />
+        </div>
+        <div className="flex items-end">
+          <Button 
+            onClick={handleAddStartingAddress}
+            disabled={isGeocodingStart || !startingAddress.trim()}
+            className="w-full"
+          >
+            {isGeocodingStart ? (
+              <>Loading...</>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                {startingCoords ? 'Update Start' : 'Add Start'}
+              </>
+            )}
+          </Button>
+        </div>
+        {startingCoords && (
+          <div className="md:col-span-3">
+            <Badge variant="outline" className="flex items-center gap-2 w-fit">
+              <MapPin className="w-3 h-3" />
+              Starting from: {startingAddress}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  setStartingCoords(null);
+                  setStartingAddress('');
+                }}
+                className="ml-2 h-4 w-4 p-0"
+              >
+                ×
+              </Button>
+            </Badge>
+          </div>
+        )}
+      </div>
+
       {isLoadingRoute && (
         <div className="text-sm text-muted-foreground">
           Calculating optimal route...
