@@ -287,7 +287,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
           // Create custom marker
           const el = document.createElement('div');
           el.className = 'w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm border-2 border-background shadow-lg cursor-pointer';
-          el.textContent = (validSales.length).toString();
+          el.textContent = (coordinates.length + 1).toString();
           
           const marker = new mapboxgl.Marker(el)
             .setLngLat(coords)
