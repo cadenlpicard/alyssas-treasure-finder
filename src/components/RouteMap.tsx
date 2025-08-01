@@ -179,69 +179,67 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
       if (sale.markdown) {
         console.log('Extracting address from markdown:', sale.markdown.substring(0, 300));
         
-        // The markdown uses \\\\ as separators, so we need to handle this format
-        // Pattern for estatesales.net format: street\\\\\n\\\\\ncity, state zip
-        const estatesNetPattern = /(\d+\s+[^\\]+(?:drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{4,}\s*\\{4,}\s*([^\\,\n]+),?\s*(MI|Michigan)\s*(\d{5})?/i;
-        const estatesNetMatch = sale.markdown.match(estatesNetPattern);
+        // Look for the actual street address in the markdown
+        // Pattern: street address followed by city, state zip (split by \\)
+        const streetAddressPattern = /(\d+\s+[^\\,\n]+(?:pkwy|parkway|drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{2,}\s*\\{2,}\s*([^\\,\n]+),?\s*(MI|Michigan)\s*(\d{5})?/i;
+        const streetMatch = sale.markdown.match(streetAddressPattern);
         
-        if (estatesNetMatch) {
-          const streetAddress = estatesNetMatch[1].trim();
-          const city = estatesNetMatch[2] ? estatesNetMatch[2].trim() : '';
-          const state = estatesNetMatch[3] || 'MI';
-          const zip = estatesNetMatch[4] || '';
+        if (streetMatch) {
+          const streetAddress = streetMatch[1].trim();
+          const city = streetMatch[2].trim();
+          const state = streetMatch[3] || 'MI';
+          const zip = streetMatch[4] || '';
           
-          let fullAddress = streetAddress;
-          if (city) {
-            fullAddress += `, ${city}`;
-          }
-          fullAddress += `, ${state}`;
+          let fullAddress = streetAddress + `, ${city}, ${state}`;
           if (zip) {
             fullAddress += ` ${zip}`;
           }
           
-          console.log('Extracted address from estates.net format:', fullAddress);
+          console.log('Extracted street address:', fullAddress);
           return fullAddress;
         }
         
-        // Fallback patterns for other formats
-        const patterns = [
-          // Pattern 1: Street number + street name + city, state zip
-          /(\d+\s+[^,\n]+(?:drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*[,\n]\s*([^,\n]+),?\s*(MI|Michigan)\s*(\d{5})?/i,
-          
-          // Pattern 2: Just street address followed by city on next line
-          /(\d+\s+[^,\n]+(?:drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))[,\s]*\n[^\n]*([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})?/i,
-        ];
+        // Look for city, state, zip pattern (for appointment-only sales without street addresses)
+        const cityStatePattern = /([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})/i;
+        const cityMatch = sale.markdown.match(cityStatePattern);
         
-        for (const pattern of patterns) {
-          const match = sale.markdown.match(pattern);
-          if (match) {
-            const streetAddress = match[1].trim();
-            const city = match[2] ? match[2].trim() : '';
-            const state = match[3] || 'MI';
-            const zip = match[4] || '';
-            
-            let fullAddress = streetAddress;
-            if (city) {
-              fullAddress += `, ${city}`;
-            }
-            fullAddress += `, ${state}`;
-            if (zip) {
-              fullAddress += ` ${zip}`;
-            }
-            
-            console.log('Extracted address from fallback pattern:', fullAddress);
-            return fullAddress;
+        if (cityMatch) {
+          const city = cityMatch[1].trim();
+          const state = cityMatch[2] || 'MI';
+          const zip = cityMatch[3] || '';
+          
+          let fullAddress = `${city}, ${state}`;
+          if (zip) {
+            fullAddress += ` ${zip}`;
           }
+          
+          console.log('Extracted city/state address:', fullAddress);
+          return fullAddress;
         }
         
-        // Fallback: look for any address-like pattern with Michigan cities
+        // Fallback: look for any street address followed by Michigan cities
         const michiganCities = ['Grand Blanc', 'Burton', 'Davison', 'Lapeer', 'Metamora', 'West Bloomfield', 'North Branch', 'Brighton', 'Imlay City', 'Vassar', 'Flint', 'Durand'];
         for (const city of michiganCities) {
-          const cityPattern = new RegExp(`(\\d+\\s+[^,\\n\\\\]+(?:drive|dr\\.?|road|rd\\.?|street|st\\.?|avenue|ave\\.?|lane|ln\\.?|court|ct\\.?|boulevard|blvd\\.?|circle|cir\\.?|way|place|pl\\.?))[^\\n]*${city}`, 'i');
+          // Look for street address near the city name
+          const cityPattern = new RegExp(`(\\d+\\s+[^\\n\\\\,]+(?:pkwy|parkway|drive|dr\\.?|road|rd\\.?|street|st\\.?|avenue|ave\\.?|lane|ln\\.?|court|ct\\.?|boulevard|blvd\\.?|circle|cir\\.?|way|place|pl\\.?))[^\\n]*?${city}`, 'i');
           const match = sale.markdown.match(cityPattern);
           if (match) {
             const fullAddress = `${match[1].trim()}, ${city}, MI`;
             console.log('Extracted address with MI city fallback:', fullAddress);
+            return fullAddress;
+          }
+          
+          // Also look for just the city name with state/zip
+          const cityOnlyPattern = new RegExp(`${city},?\\s*(MI|Michigan)\\s*(\\d{5})?`, 'i');
+          const cityOnlyMatch = sale.markdown.match(cityOnlyPattern);
+          if (cityOnlyMatch) {
+            const state = cityOnlyMatch[1] || 'MI';
+            const zip = cityOnlyMatch[2] || '';
+            let fullAddress = `${city}, ${state}`;
+            if (zip) {
+              fullAddress += ` ${zip}`;
+            }
+            console.log('Extracted city-only address:', fullAddress);
             return fullAddress;
           }
         }
