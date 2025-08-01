@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MapPin, Route, Clock, Navigation, Plus } from 'lucide-react';
+import { MapPin, Route, Clock, Navigation, Plus, ExternalLink, Car } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 
@@ -39,6 +39,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
   const [isGeocodingStart, setIsGeocodingStart] = useState(false);
   const [addressSuggestions, setAddressSuggestions] = useState<Array<{text: string, place_name: string, center: [number, number]}>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [routeDirections, setRouteDirections] = useState<Array<{title: string, address: string, coords: [number, number], googleMapsUrl: string}>>([]);
   const { toast } = useToast();
 
   // Get Mapbox token from Supabase edge function
@@ -201,8 +202,94 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     }
   };
 
+  // Generate directions from waypoints and sales data
+  const generateDirections = (waypoints: any[], sales: EstateSale[], includeStart: boolean) => {
+    const directions: Array<{title: string, address: string, coords: [number, number], googleMapsUrl: string}> = [];
+    
+    // Add starting point if included
+    if (includeStart && startingCoords) {
+      directions.push({
+        title: 'Starting Point',
+        address: startingAddress,
+        coords: startingCoords,
+        googleMapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${startingCoords[1]},${startingCoords[0]}&travelmode=driving`
+      });
+    }
+    
+    // Match waypoints to sales based on coordinates
+    waypoints.forEach((waypoint, index) => {
+      // Skip the first waypoint if it's the starting point
+      const salesIndex = includeStart && startingCoords ? index - 1 : index;
+      
+      if (salesIndex >= 0 && salesIndex < sales.length) {
+        const sale = sales[salesIndex];
+        const coords: [number, number] = [waypoint.location[0], waypoint.location[1]];
+        
+        // Extract address from the sale
+        const address = extractAddressFromSale(sale);
+        
+        directions.push({
+          title: sale.title || 'Estate Sale',
+          address: address || 'Address not found',
+          coords: coords,
+          googleMapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${coords[1]},${coords[0]}&travelmode=driving`
+        });
+      }
+    });
+    
+    return directions;
+  };
+
+  // Helper function to extract address from sale (moved from inside useEffect)
+  const extractAddressFromSale = (sale: EstateSale): string | null => {
+    // First try the parsed address field from FirecrawlService
+    if (sale.address && sale.address.trim()) {
+      return sale.address.trim();
+    }
+    
+    // Then try to extract address from markdown
+    if (sale.markdown) {
+      // Look for the actual street address in the markdown
+      const streetAddressPattern = /(\d+\s+[^\\,\n]+(?:pkwy|parkway|drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{2,}\s*\\{2,}\s*([^\\,\n]+),?\s*(MI|Michigan)\s*(\d{5})?/i;
+      const streetMatch = sale.markdown.match(streetAddressPattern);
+      
+      if (streetMatch) {
+        const streetAddress = streetMatch[1].trim();
+        const city = streetMatch[2].trim();
+        const state = streetMatch[3] || 'MI';
+        const zip = streetMatch[4] || '';
+        
+        let fullAddress = streetAddress + `, ${city}, ${state}`;
+        if (zip) {
+          fullAddress += ` ${zip}`;
+        }
+        
+        return fullAddress;
+      }
+      
+      // Look for city, state, zip pattern
+      const cityStatePattern = /([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})/i;
+      const cityMatch = sale.markdown.match(cityStatePattern);
+      
+      if (cityMatch) {
+        const city = cityMatch[1].trim();
+        const state = cityMatch[2] || 'MI';
+        const zip = cityMatch[3] || '';
+        
+        let fullAddress = `${city}, ${state}`;
+        if (zip) {
+          fullAddress += ` ${zip}`;
+        }
+        
+        return fullAddress;
+      }
+    }
+    
+    return null;
+  };
+
   // Calculate optimized route using Mapbox Optimization API (TSP solver)
-  const calculateOptimizedRoute = async (coordinates: [number, number][], includeStart: boolean = false) => {
+  const calculateOptimizedRoute = async (coordinates: [number, number][], salesData: EstateSale[], includeStart: boolean = false) => {
     let routeCoords = [...coordinates];
     
     // Add starting address as first coordinate if provided
@@ -251,6 +338,11 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
       
       if (data.trips && data.trips[0]) {
         const trip = data.trips[0];
+        
+        // Generate directions from the optimized waypoints and sales data
+        const directions = generateDirections(trip.waypoints, salesData, includeStart);
+        setRouteDirections(directions);
+        
         return {
           geometry: trip.geometry,
           distance: (trip.distance / 1609.34).toFixed(1), // Convert to miles
@@ -475,7 +567,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
       if (coordinates.length > 1) {
         console.log('Calculating optimized route for', coordinates.length, 'points');
         // Calculate and display optimized route with or without starting address
-        const routeData = await calculateOptimizedRoute(coordinates, !!startingCoords);
+        const routeData = await calculateOptimizedRoute(coordinates, validSales, !!startingCoords);
         
         if (routeData && map.current) {
           console.log('Route calculated successfully:', routeData);
@@ -686,6 +778,68 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
         className="w-full h-96 rounded-lg border border-border shadow-lg"
         style={{ minHeight: '400px' }}
       />
+      
+      {/* Route Directions */}
+      {routeDirections.length > 0 && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Car className="w-5 h-5" />
+              Optimized Route Directions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {routeDirections.map((direction, index) => (
+                <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                  <div className="flex-shrink-0">
+                    {direction.title === 'Starting Point' ? (
+                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                        🏠
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm">
+                        {direction.title === 'Starting Point' ? '🏠' : index}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm mb-1 truncate">{direction.title}</h4>
+                    <p className="text-xs text-muted-foreground mb-2">{direction.address}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(direction.googleMapsUrl, '_blank')}
+                      className="h-7 px-2 text-xs"
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      Navigate
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Full Route Google Maps Link */}
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                variant="default"
+                onClick={() => {
+                  const waypoints = routeDirections
+                    .map(d => `${d.coords[1]},${d.coords[0]}`)
+                    .join('|');
+                  const fullRouteUrl = `https://www.google.com/maps/dir/${waypoints}`;
+                  window.open(fullRouteUrl, '_blank');
+                }}
+                className="w-full"
+              >
+                <Car className="w-4 h-4 mr-2" />
+                Open Full Route in Google Maps
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       <div className="text-xs text-muted-foreground">
         Click markers to see estate sale details. Route is optimized for shortest travel time.
