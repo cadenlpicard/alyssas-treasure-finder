@@ -101,7 +101,7 @@ export const MapView = ({ sales }: MapViewProps) => {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v10',
+      style: 'mapbox://styles/mapbox/outdoors-v12',
       center: [avgLng, avgLat],
       zoom: 10
     });
