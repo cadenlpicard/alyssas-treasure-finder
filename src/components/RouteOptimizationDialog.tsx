@@ -176,14 +176,17 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
               <Navigation className="w-4 h-4" />
               Starting Address
             </Label>
-            <Input
-              id="startingAddress"
-              value={startingAddress}
-              onChange={(e) => setStartingAddress(e.target.value)}
-              placeholder="Enter your starting address (e.g., 123 Main St, Grand Blanc, MI)"
-              disabled={isOptimizing}
-              autoComplete="street-address"
-            />
+            <div className="relative">
+              <Input
+                id="startingAddress"
+                value={startingAddress}
+                onChange={(e) => setStartingAddress(e.target.value)}
+                placeholder="Enter your starting address (e.g., 123 Main St, Anytown, USA)"
+                disabled={isOptimizing}
+                autoComplete="street-address"
+                list="address-suggestions"
+              />
+            </div>
           </div>
 
           {/* Optimize Button */}

@@ -30,7 +30,7 @@ serve(async (req) => {
     console.log('Optimizing route for addresses:', addresses);
     console.log('Starting address:', startingAddress);
 
-    const prompt = `You are a route optimization expert. Given the following list of addresses in Michigan, please return the most efficient visiting order to minimize total driving time and distance, along with a Google Maps directions URL.
+    const prompt = `You are a route optimization expert. Given the following list of addresses, please return the most efficient visiting order to minimize total driving time and distance, along with a Google Maps directions URL.
 
 ${startingAddress ? `Starting Address: ${startingAddress}` : ''}
 
@@ -44,7 +44,7 @@ Critical Requirements:
 - Use the EXACT address strings provided (do not modify them)
 - Each address must appear EXACTLY ONCE in the optimized route
 - Do not duplicate any addresses
-- Consider typical Michigan traffic patterns and road networks
+- Consider typical traffic patterns and road networks
 - Optimize for the shortest total driving time and distance
 - The response must be valid JSON
 ${startingAddress ? '- Always start with the provided starting address' : ''}

@@ -249,6 +249,12 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
             <MapPin className="w-4 h-4 text-treasure-green flex-shrink-0" />
             <div className="flex flex-col">
               <span className="text-foreground">{displayAddress}</span>
+              {/* Check if this is only city/state without full address */}
+              {displayAddress && !displayAddress.match(/\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court)/i) && (
+                <span className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-2 py-1 rounded mt-1 w-fit">
+                  ⚠️ City/State only - no full address
+                </span>
+              )}
               {(displayCity || displayState) && (
                 <div className="flex items-center gap-1 mt-1">
                   <span className="text-xs text-muted-foreground">
