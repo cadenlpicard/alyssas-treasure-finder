@@ -145,7 +145,7 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
         iconEl.style.fontSize = '16px';
         markerEl.appendChild(iconEl);
 
-        // Add hover effect and show details on hover with delay to prevent flickering
+        // Add hover effect and show details on hover with improved flickering prevention
         markerEl.addEventListener('mouseenter', () => {
           if (hideTimeoutRef.current) {
             clearTimeout(hideTimeoutRef.current);
@@ -155,12 +155,14 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
           markerEl.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
           setSelectedSale(sale);
         });
+        
+        // Use a longer delay and only hide if mouse is truly away from both marker and popup
         markerEl.addEventListener('mouseleave', () => {
           markerEl.style.filter = 'brightness(1)';
           markerEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
           hideTimeoutRef.current = setTimeout(() => {
             setSelectedSale(null);
-          }, 100);
+          }, 300);
         });
 
         // Add click handler for selection
@@ -200,7 +202,20 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
       
       {/* Selected sale popup */}
       {selectedSale && (
-        <div className="absolute top-4 left-4 right-4 z-10 max-w-sm">
+        <div 
+          className="absolute top-4 left-4 right-4 z-10 max-w-sm"
+          onMouseEnter={() => {
+            if (hideTimeoutRef.current) {
+              clearTimeout(hideTimeoutRef.current);
+              hideTimeoutRef.current = null;
+            }
+          }}
+          onMouseLeave={() => {
+            hideTimeoutRef.current = setTimeout(() => {
+              setSelectedSale(null);
+            }, 300);
+          }}
+        >
           <Card className="p-4 bg-background/95 backdrop-blur-sm border shadow-lg">
             <div className="flex justify-between items-start mb-2">
               <h3 className="font-semibold text-sm text-foreground line-clamp-2">
