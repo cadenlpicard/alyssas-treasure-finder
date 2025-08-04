@@ -200,16 +200,30 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
   
   const displayTitle = sale.title || extracted.title;
   const displayDate = sale.date || extracted.date;
-  const displayAddress = sale.address || extracted.address;
+  let displayAddress = sale.address || extracted.address;
   const displayCompany = sale.company || extracted.company;
   const displayDescription = sale.description || extracted.description;
   const displayCity = sale.city || extracted.city;
   const displayState = sale.state || extracted.state;
 
+  // Fix address if it contains metadata instead of actual address
+  if (displayAddress && (
+    displayAddress.includes('Last modified') || 
+    displayAddress.includes('Pictures') || 
+    displayAddress.includes('Picture Added') ||
+    displayAddress.includes('hours ago') ||
+    displayAddress.includes('minutes ago') ||
+    displayAddress.includes('days ago')
+  )) {
+    // Use city/state as address instead of metadata
+    displayAddress = displayCity && displayState ? `${displayCity}, ${displayState}` : displayAddress;
+  }
+
   // Debug logging for address issues
   console.log('Estate Sale Debug:', {
     title: displayTitle,
-    address: displayAddress,
+    originalAddress: sale.address || extracted.address,
+    cleanedAddress: displayAddress,
     city: displayCity,
     state: displayState,
     saleAddress: sale.address,
@@ -267,6 +281,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
                 console.log('Badge Logic Debug:', {
                   displayAddress,
                   isEmpty: !displayAddress || displayAddress === 'Address TBD' || displayAddress.trim() === '',
+                  isMetadata: displayAddress && (displayAddress.includes('Last modified') || displayAddress.includes('Pictures')),
                   hasStreetPattern: displayAddress ? /\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)/i.test(displayAddress) : false
                 });
                 
