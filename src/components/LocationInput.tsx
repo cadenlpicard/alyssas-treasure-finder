@@ -418,18 +418,6 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
         </div>
       </div>
 
-      {selectedLocation && (
-        <div className="p-3 bg-accent/30 rounded-lg border border-border/30">
-          <p className="text-sm text-muted-foreground mb-1">Selected Location:</p>
-          <p className="text-sm font-medium text-foreground">
-            {selectedLocation.city}, {selectedLocation.state} {selectedLocation.zipcode}
-          </p>
-          <p className="text-sm text-muted-foreground mb-2">Generated URL:</p>
-          <p className="text-sm font-mono text-foreground break-all">
-            {generateUrl(selectedLocation)}
-          </p>
-        </div>
-      )}
       
       {!mapboxToken && (
         <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
