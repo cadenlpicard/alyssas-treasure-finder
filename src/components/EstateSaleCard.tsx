@@ -252,13 +252,29 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
               <span className="text-foreground">{displayAddress}</span>
               
               {/* Show warning badge for address issues */}
-              {(!displayAddress || 
-                displayAddress === 'Address TBD' || 
-                !displayAddress.match(/\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court)/i)) ? (
-                <span className="text-xs text-red-600 bg-red-50 dark:bg-red-950/20 px-2 py-1 rounded mt-1 w-fit">
-                  🚫 Address not available yet
-                </span>
-              ) : null}
+              {(() => {
+                // Check if we have no address or just a placeholder
+                if (!displayAddress || displayAddress === 'Address TBD' || displayAddress.trim() === '') {
+                  return (
+                    <span className="text-xs text-red-600 bg-red-50 dark:bg-red-950/20 px-2 py-1 rounded mt-1 w-fit">
+                      🚫 Address not available yet
+                    </span>
+                  );
+                }
+                
+                // Check if address is only city/state (no street number and name)
+                const hasStreetAddress = /\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)/i.test(displayAddress);
+                
+                if (!hasStreetAddress) {
+                  return (
+                    <span className="text-xs text-red-600 bg-red-50 dark:bg-red-950/20 px-2 py-1 rounded mt-1 w-fit">
+                      🚫 Address not available yet
+                    </span>
+                  );
+                }
+                
+                return null;
+              })()}
               
               {(displayCity || displayState) && (
                 <div className="flex items-center gap-1 mt-1">
