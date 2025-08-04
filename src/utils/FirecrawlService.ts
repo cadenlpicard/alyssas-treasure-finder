@@ -114,6 +114,12 @@ export class FirecrawlService {
       
       const sale: any = {};
       
+      // Extract image URL - look for image pattern at the beginning
+      const imageMatch = block.match(/\[!\[.*?\]\((https:\/\/[^)]+\.(?:jpg|jpeg|png|gif|webp))/i);
+      if (imageMatch) {
+        sale.imageUrl = imageMatch[1];
+      }
+      
       // Extract title - look for **title** pattern
       const titleMatch = block.match(/\*\*(.*?)\*\*/);
       if (titleMatch) {

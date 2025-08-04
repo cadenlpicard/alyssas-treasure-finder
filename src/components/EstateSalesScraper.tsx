@@ -29,6 +29,7 @@ interface EstateSale {
   zipCode?: string;
   streetAddress?: string;
   uniqueId?: string;
+  imageUrl?: string;
 }
 
 interface CrawlResult {
@@ -308,7 +309,8 @@ export const EstateSalesScraper = () => {
                     state: item.state,
                     zipCode: item.zipCode,
                     streetAddress: item.streetAddress,
-                    uniqueId: uniqueId
+                    uniqueId: uniqueId,
+                    imageUrl: item.imageUrl
                   };
                   
                   const isSelected = selectedSales.some(s => {

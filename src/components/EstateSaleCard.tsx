@@ -19,6 +19,7 @@ interface EstateSale {
   zipCode?: string;
   streetAddress?: string;
   uniqueId?: string;
+  imageUrl?: string;
 }
 
 interface EstateSaleCardProps {
@@ -219,9 +220,30 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
   });
 
   return (
-    <Card className={`group hover:shadow-lg transition-all duration-300 border-vintage-gold/20 bg-card/80 backdrop-blur ${
+    <Card className={`group hover:shadow-lg transition-all duration-300 border-vintage-gold/20 bg-card/80 backdrop-blur overflow-hidden ${
       isSelected ? 'ring-2 ring-vintage-gold bg-vintage-gold/10' : ''
     }`}>
+      {sale.imageUrl && (
+        <div className="relative h-48 w-full overflow-hidden">
+          <img 
+            src={sale.imageUrl} 
+            alt={displayTitle || "Estate sale image"}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={(e) => {
+              // Hide image if it fails to load
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+          {sale.status && (
+            <Badge 
+              variant="secondary" 
+              className="absolute top-2 right-2 text-xs bg-background/80 backdrop-blur"
+            >
+              {sale.status}
+            </Badge>
+          )}
+        </div>
+      )}
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3 flex-1">
@@ -243,7 +265,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
             </div>
           </div>
           
-          {sale.status && (
+          {!sale.imageUrl && sale.status && (
             <Badge variant="secondary" className="text-xs">
               {sale.status}
             </Badge>
