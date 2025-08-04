@@ -70,8 +70,8 @@ export class FirecrawlService {
     console.log('Raw markdown content:', markdown.substring(0, 500));
     const sales: any[] = [];
     
-    // Split by image patterns - each estate sale starts with [![
-    const saleBlocks = markdown.split(/(?=\[!\[)/);
+    // Split by image patterns - each estate sale starts with [![](
+    const saleBlocks = markdown.split(/(?=\[!\[\]\(https:\/\/picturescdn\.estatesales\.net)/);
     
     console.log(`Found ${saleBlocks.length} potential sale blocks`);
     
@@ -85,10 +85,13 @@ export class FirecrawlService {
       
       const sale: any = {};
       
-      // Extract title - look for **title** pattern
+      // Extract title - look for **title** pattern, clean up escapes
       const titleMatch = block.match(/\*\*(.*?)\*\*/);
       if (titleMatch) {
-        sale.title = titleMatch[1].trim().replace(/\\\\/g, '');
+        sale.title = titleMatch[1].trim()
+          .replace(/\\\\/g, '')
+          .replace(/\\n/g, ' ')
+          .replace(/\s+/g, ' ');
       }
       
       // Extract company - look for "Listed by" pattern
@@ -110,18 +113,28 @@ export class FirecrawlService {
         sale.lastModified = modifiedMatch[1].trim();
       }
       
-      // Extract address - look for street address patterns
-      const addressLines = block.split('\\\\');
+      // Extract address - look for city, state patterns in the markdown
+      const lines = block.split(/\\\\|\n/);
       let addressFound = false;
-      for (const line of addressLines) {
-        if (line.includes('MI ') && /\d{5}/.test(line)) {
-          sale.address = line.trim();
+      
+      for (const line of lines) {
+        const cleanLine = line.trim();
+        
+        // Look for full address with MI and zip
+        if (cleanLine.includes('MI ') && /\d{5}/.test(cleanLine)) {
+          sale.address = cleanLine;
           addressFound = true;
           break;
         }
-        // Also check for just street addresses without state
-        if (!addressFound && /^\d+\s+[a-zA-Z\s]+(?:rd|drive|dr|street|st|ave|avenue|lane|ln|ct|court|way|blvd|boulevard)/i.test(line.trim())) {
-          sale.streetAddress = line.trim();
+        // Look for street addresses
+        if (!addressFound && /^\d+\s+[a-zA-Z\s]+(?:rd|drive|dr\.?|street|st\.?|ave|avenue|lane|ln\.?|ct|court|way|blvd|boulevard|pkwy|parkway)/i.test(cleanLine)) {
+          sale.streetAddress = cleanLine;
+        }
+        // Look for city names followed by MI
+        if (!addressFound && /^[A-Z][a-z\s]+,?\s*MI\s*\d{5}/.test(cleanLine)) {
+          sale.address = cleanLine;
+          addressFound = true;
+          break;
         }
       }
       
