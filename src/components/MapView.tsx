@@ -33,6 +33,7 @@ export const MapView = ({ sales }: MapViewProps) => {
   const [mapboxToken, setMapboxToken] = useState('');
   const [selectedSale, setSelectedSale] = useState<EstateSale | null>(null);
   const [coordinates, setCoordinates] = useState<{ [key: string]: [number, number] }>({});
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get Mapbox token
   useEffect(() => {
@@ -136,8 +137,12 @@ export const MapView = ({ sales }: MapViewProps) => {
         iconEl.style.fontSize = '16px';
         markerEl.appendChild(iconEl);
 
-        // Add hover effect and show details on hover
+        // Add hover effect and show details on hover with delay to prevent flickering
         markerEl.addEventListener('mouseenter', () => {
+          if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+          }
           markerEl.style.filter = 'brightness(1.1)';
           markerEl.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
           setSelectedSale(sale);
@@ -145,7 +150,9 @@ export const MapView = ({ sales }: MapViewProps) => {
         markerEl.addEventListener('mouseleave', () => {
           markerEl.style.filter = 'brightness(1)';
           markerEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-          setSelectedSale(null);
+          hideTimeoutRef.current = setTimeout(() => {
+            setSelectedSale(null);
+          }, 100);
         });
 
         // Create marker and add to map
