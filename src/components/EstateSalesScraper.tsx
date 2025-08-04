@@ -219,138 +219,103 @@ export const EstateSalesScraper = () => {
           </form>
         </div>
 
-      {crawlResult && (
-        <Card className="border-vintage-gold/30 bg-card/50 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-treasure-green">
-              <Calendar className="w-5 h-5" />
-              Scraping Results
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-accent/50 rounded-lg">
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge variant="secondary" className="mt-1">
-                  {crawlResult.status}
-                </Badge>
+        {crawlResult && crawlResult.data && crawlResult.data.length > 0 && (() => {
+          // First deduplicate results based on similar titles and addresses
+          const deduplicatedData = crawlResult.data.filter((item: any, index: number, self: any[]) => {
+            return index === self.findIndex((other: any) => {
+              const itemTitle = (item.title || item.markdown || '').toLowerCase().trim();
+              const otherTitle = (other.title || other.markdown || '').toLowerCase().trim();
+              const itemAddress = (item.address || item.markdown || '').toLowerCase().trim();
+              const otherAddress = (other.address || other.markdown || '').toLowerCase().trim();
+              
+              // Consider items duplicates if titles are very similar or addresses match
+              const titleSimilarity = itemTitle === otherTitle || 
+                (itemTitle.length > 10 && otherTitle.length > 10 && 
+                 (itemTitle.includes(otherTitle.substring(0, 15)) || otherTitle.includes(itemTitle.substring(0, 15))));
+              
+              const addressSimilarity = itemAddress === otherAddress ||
+                (itemAddress.includes('del rio') && otherAddress.includes('del rio')) ||
+                (itemAddress.includes('grand blanc') && otherAddress.includes('grand blanc') && 
+                 itemAddress.length < 50 && otherAddress.length < 50);
+              
+              return titleSimilarity || addressSimilarity;
+            });
+          });
+
+          // Then filter by radius if not set to "All distances"
+          const filteredData = radiusFilter === 999 ? deduplicatedData : deduplicatedData.filter((item: any) => {
+            const distance = parseDistance(item.distance);
+            return distance <= radiusFilter;
+          });
+
+          return (
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <h4 className="font-semibold text-foreground flex items-center gap-2">
+                    <Grid className="w-5 h-5 text-vintage-gold" />
+                    Found Estate Sales ({filteredData.length})
+                  </h4>
+                  {radiusFilter !== 999 && filteredData.length !== deduplicatedData.length && (
+                    <Badge variant="outline" className="text-xs">
+                      {deduplicatedData.length - filteredData.length} filtered out
+                     </Badge>
+                   )}
+                 </div>
+                {selectedSales.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {selectedSales.length} selected
+                    </Badge>
+                    <Button 
+                      onClick={handlePlanRoute}
+                      size="sm"
+                      variant="vintage"
+                      className="flex items-center gap-1"
+                    >
+                      <Map className="w-4 h-4" />
+                      Plan Route
+                    </Button>
+                  </div>
+                )}
               </div>
-              <div className="text-center p-3 bg-accent/50 rounded-lg">
-                <p className="text-sm text-muted-foreground">Pages Found</p>
-                <p className="text-lg font-semibold text-foreground">
-                  {crawlResult.completed}/{crawlResult.total}
-                </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                {filteredData.map((item: any, index: number) => {
+                  const saleData: EstateSale = {
+                    title: item.title,
+                    date: item.date,
+                    address: item.address,
+                    description: item.description,
+                    url: item.url || item.sourceURL,
+                    status: item.status,
+                    company: item.company,
+                    distance: item.distance,
+                    markdown: item.markdown,
+                    city: item.city,
+                    state: item.state,
+                    zipCode: item.zipCode,
+                    streetAddress: item.streetAddress
+                  };
+                  
+                  return (
+                    <EstateSaleCard 
+                      key={index} 
+                      sale={saleData}
+                      isSelected={selectedSales.some(s => s.markdown === saleData.markdown)}
+                      onSelect={handleSaleSelection}
+                    />
+                  );
+                })}
               </div>
             </div>
-            
-            <div className="flex items-center justify-between p-3 bg-accent/30 rounded-lg">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-vintage-gold" />
-                <span className="text-sm text-foreground">Credits Used:</span>
-              </div>
-              <span className="font-semibold text-primary">{crawlResult.creditsUsed}</span>
-            </div>
-            
-            {crawlResult.data && crawlResult.data.length > 0 && (() => {
-              // First deduplicate results based on similar titles and addresses
-              const deduplicatedData = crawlResult.data.filter((item: any, index: number, self: any[]) => {
-                return index === self.findIndex((other: any) => {
-                  const itemTitle = (item.title || item.markdown || '').toLowerCase().trim();
-                  const otherTitle = (other.title || other.markdown || '').toLowerCase().trim();
-                  const itemAddress = (item.address || item.markdown || '').toLowerCase().trim();
-                  const otherAddress = (other.address || other.markdown || '').toLowerCase().trim();
-                  
-                  // Consider items duplicates if titles are very similar or addresses match
-                  const titleSimilarity = itemTitle === otherTitle || 
-                    (itemTitle.length > 10 && otherTitle.length > 10 && 
-                     (itemTitle.includes(otherTitle.substring(0, 15)) || otherTitle.includes(itemTitle.substring(0, 15))));
-                  
-                  const addressSimilarity = itemAddress === otherAddress ||
-                    (itemAddress.includes('del rio') && otherAddress.includes('del rio')) ||
-                    (itemAddress.includes('grand blanc') && otherAddress.includes('grand blanc') && 
-                     itemAddress.length < 50 && otherAddress.length < 50);
-                  
-                  return titleSimilarity || addressSimilarity;
-                });
-              });
+          );
+        })()}
 
-              // Then filter by radius if not set to "All distances"
-              const filteredData = radiusFilter === 999 ? deduplicatedData : deduplicatedData.filter((item: any) => {
-                const distance = parseDistance(item.distance);
-                return distance <= radiusFilter;
-              });
-
-              return (
-                <div className="mt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <h4 className="font-semibold text-foreground flex items-center gap-2">
-                        <Grid className="w-5 h-5 text-vintage-gold" />
-                        Found Estate Sales ({filteredData.length})
-                      </h4>
-                      {radiusFilter !== 999 && filteredData.length !== deduplicatedData.length && (
-                        <Badge variant="outline" className="text-xs">
-                          {deduplicatedData.length - filteredData.length} filtered out
-                         </Badge>
-                       )}
-                     </div>
-                    {selectedSales.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {selectedSales.length} selected
-                        </Badge>
-                        <Button 
-                          onClick={handlePlanRoute}
-                          size="sm"
-                          variant="vintage"
-                          className="flex items-center gap-1"
-                        >
-                          <Map className="w-4 h-4" />
-                          Plan Route
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {filteredData.map((item: any, index: number) => {
-                      const saleData: EstateSale = {
-                        title: item.title,
-                        date: item.date,
-                        address: item.address,
-                        description: item.description,
-                        url: item.url || item.sourceURL,
-                        status: item.status,
-                        company: item.company,
-                        distance: item.distance,
-                        markdown: item.markdown,
-                        city: item.city,
-                        state: item.state,
-                        zipCode: item.zipCode,
-                        streetAddress: item.streetAddress
-                      };
-                      
-                      return (
-                        <EstateSaleCard 
-                          key={index} 
-                          sale={saleData}
-                          isSelected={selectedSales.some(s => s.markdown === saleData.markdown)}
-                          onSelect={handleSaleSelection}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
-      )}
-
-      <RouteOptimizationDialog 
-        open={showRouteDialog}
-        onOpenChange={setShowRouteDialog}
-        selectedSales={selectedSales}
-      />
+        <RouteOptimizationDialog
+          open={showRouteDialog}
+          onOpenChange={setShowRouteDialog}
+          selectedSales={selectedSales}
+        />
       </div>
     </div>
   );
