@@ -30,24 +30,28 @@ serve(async (req) => {
     console.log('Optimizing route for addresses:', addresses);
     console.log('Starting address:', startingAddress);
 
-    const prompt = `You are a route optimization expert. Given the following list of addresses in Michigan, please return the most efficient visiting order to minimize total driving time and distance.
+    const prompt = `You are a route optimization expert. Given the following list of addresses in Michigan, please return the most efficient visiting order to minimize total driving time and distance, along with a Google Maps directions URL.
 
 ${startingAddress ? `Starting Address: ${startingAddress}` : ''}
 
 Addresses to visit:
 ${addresses.map((addr, index) => `${index + 1}. ${addr}`).join('\n')}
 
-Please analyze these addresses and return ONLY a JSON array with the optimal order. ${startingAddress ? 'The first address in the array should always be the starting address, followed by the estate sales in optimal visiting order.' : 'The array should contain the addresses in the most efficient visiting sequence.'}
+Please analyze these addresses and return ONLY a JSON object with the optimal order and Google Maps URL. ${startingAddress ? 'The first address in the route should always be the starting address, followed by the estate sales in optimal visiting order.' : 'The array should contain the addresses in the most efficient visiting sequence.'}
 
 Important:
-- Return ONLY the JSON array, no other text
+- Return ONLY the JSON object, no other text
 - Use the exact address strings provided
 - Consider typical Michigan traffic patterns and road networks
 - Optimize for the shortest total driving time and distance
 - The response must be valid JSON
 ${startingAddress ? '- Always start with the provided starting address' : ''}
+- Generate a proper Google Maps directions URL with all waypoints
 
-Example format: ["address1", "address2", "address3"]`;
+Example format: {
+  "optimizedRoute": ["address1", "address2", "address3"],
+  "googleMapsUrl": "https://www.google.com/maps/dir/encoded_address1/encoded_address2/encoded_address3"
+}`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -60,7 +64,7 @@ Example format: ["address1", "address2", "address3"]`;
         messages: [
           { 
             role: 'system', 
-            content: 'You are a route optimization expert. Always respond with only valid JSON arrays containing the optimized address order.' 
+            content: 'You are a route optimization expert. Always respond with only valid JSON objects containing the optimized route and Google Maps URL.' 
           },
           { role: 'user', content: prompt }
         ],
@@ -79,25 +83,41 @@ Example format: ["address1", "address2", "address3"]`;
     console.log('OpenAI response:', optimizedRoute);
 
     // Parse the JSON response
-    let parsedRoute;
+    let parsedResponse;
     try {
-      parsedRoute = JSON.parse(optimizedRoute);
+      parsedResponse = JSON.parse(optimizedRoute);
     } catch (parseError) {
       console.error('Failed to parse OpenAI response as JSON:', optimizedRoute);
       // Fallback to original order if parsing fails
-      parsedRoute = addresses;
+      parsedResponse = {
+        optimizedRoute: addresses,
+        googleMapsUrl: ''
+      };
+    }
+
+    // Validate the response structure
+    if (!parsedResponse.optimizedRoute || !Array.isArray(parsedResponse.optimizedRoute)) {
+      console.warn('Invalid route response, using original order');
+      parsedResponse = {
+        optimizedRoute: addresses,
+        googleMapsUrl: parsedResponse.googleMapsUrl || ''
+      };
     }
 
     // Validate that all original addresses are included
-    if (!Array.isArray(parsedRoute) || parsedRoute.length !== addresses.length) {
-      console.warn('Invalid route response, using original order');
-      parsedRoute = addresses;
+    if (parsedResponse.optimizedRoute.length !== addresses.length) {
+      console.warn('Route length mismatch, using original order');
+      parsedResponse.optimizedRoute = addresses;
     }
 
-    console.log('Optimized route order:', parsedRoute);
+    console.log('Optimized route order:', parsedResponse.optimizedRoute);
+    console.log('Google Maps URL:', parsedResponse.googleMapsUrl);
 
     return new Response(
-      JSON.stringify({ optimizedRoute: parsedRoute }),
+      JSON.stringify({
+        optimizedRoute: parsedResponse.optimizedRoute,
+        googleMapsUrl: parsedResponse.googleMapsUrl || ''
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }

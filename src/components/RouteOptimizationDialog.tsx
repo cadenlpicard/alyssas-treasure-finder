@@ -35,6 +35,7 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
   const [startingAddress, setStartingAddress] = useState('');
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizedRoute, setOptimizedRoute] = useState<string[]>([]);
+  const [googleMapsUrl, setGoogleMapsUrl] = useState<string>('');
 
   // Helper function to extract address from markdown
   const extractAddressFromMarkdown = (markdown: string): string | null => {
@@ -122,7 +123,9 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
         });
       } else if (data?.optimizedRoute) {
         console.log('Optimized route received:', data.optimizedRoute);
+        console.log('Google Maps URL received:', data.googleMapsUrl);
         setOptimizedRoute(data.optimizedRoute);
+        setGoogleMapsUrl(data.googleMapsUrl || '');
         
         toast({
           title: "Route Optimized!",
@@ -143,6 +146,7 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
 
   const handleReset = () => {
     setOptimizedRoute([]);
+    setGoogleMapsUrl('');
     setStartingAddress('');
   };
 
@@ -151,21 +155,6 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
     onOpenChange(false);
   };
 
-  const generateGoogleMapsUrl = () => {
-    if (optimizedRoute.length < 2) return '';
-    
-    const origin = encodeURIComponent(optimizedRoute[0]);
-    const destination = encodeURIComponent(optimizedRoute[optimizedRoute.length - 1]);
-    const waypoints = optimizedRoute.slice(1, -1).map(address => encodeURIComponent(address)).join('|');
-    
-    let url = `https://www.google.com/maps/dir/${origin}`;
-    if (waypoints) {
-      url += `/${waypoints}`;
-    }
-    url += `/${destination}`;
-    
-    return url;
-  };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -281,13 +270,15 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
               </div>
 
               <div className="space-y-3 pt-4">
-                <Button 
-                  onClick={() => window.open(generateGoogleMapsUrl(), '_blank')}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Navigation className="w-4 h-4 mr-2" />
-                  Get Directions in Google Maps
-                </Button>
+                {googleMapsUrl && (
+                  <Button 
+                    onClick={() => window.open(googleMapsUrl, '_blank')}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Navigation className="w-4 h-4 mr-2" />
+                    Get Directions in Google Maps
+                  </Button>
+                )}
                 
                 <div className="flex gap-2">
                   <Button 
