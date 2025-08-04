@@ -871,34 +871,41 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {routeDirections.map((direction, index) => (
-                <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <div className="flex-shrink-0">
-                    {direction.title === 'Starting Point' ? (
-                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                        🏠
-                      </div>
-                    ) : (
-                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm">
-                        {direction.title === 'Starting Point' ? '🏠' : index}
-                      </div>
-                    )}
+              {routeDirections.map((direction, index) => {
+                // Calculate the correct sale number for display
+                const isStartingPoint = direction.title === 'Starting Point';
+                const saleNumber = isStartingPoint ? null : 
+                  (startingCoords ? index : index + 1); // Adjust for starting point offset
+                
+                return (
+                  <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                    <div className="flex-shrink-0">
+                      {isStartingPoint ? (
+                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                          🏠
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm">
+                          {saleNumber}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm mb-1 truncate">{direction.title}</h4>
+                      <p className="text-xs text-muted-foreground mb-2">{direction.address}</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(direction.googleMapsUrl, '_blank')}
+                        className="h-7 px-2 text-xs"
+                      >
+                        <ExternalLink className="w-3 h-3 mr-1" />
+                        Navigate
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-sm mb-1 truncate">{direction.title}</h4>
-                    <p className="text-xs text-muted-foreground mb-2">{direction.address}</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(direction.googleMapsUrl, '_blank')}
-                      className="h-7 px-2 text-xs"
-                    >
-                      <ExternalLink className="w-3 h-3 mr-1" />
-                      Navigate
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             
             {/* Full Route Google Maps Link */}
@@ -906,11 +913,26 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
               <Button
                 variant="default"
                 onClick={() => {
-                  const waypoints = routeDirections
-                    .map(d => `${d.coords[1]},${d.coords[0]}`)
-                    .join('|');
-                  const fullRouteUrl = `https://www.google.com/maps/dir/${waypoints}`;
-                  window.open(fullRouteUrl, '_blank');
+                  // Create Google Maps directions URL with proper format
+                  if (routeDirections.length < 2) return;
+                  
+                  const origin = routeDirections[0];
+                  const destination = routeDirections[routeDirections.length - 1];
+                  const waypoints = routeDirections.slice(1, -1);
+                  
+                  let url = `https://www.google.com/maps/dir/?api=1`;
+                  url += `&origin=${origin.coords[1]},${origin.coords[0]}`;
+                  url += `&destination=${destination.coords[1]},${destination.coords[0]}`;
+                  
+                  if (waypoints.length > 0) {
+                    const waypointString = waypoints
+                      .map(wp => `${wp.coords[1]},${wp.coords[0]}`)
+                      .join('|');
+                    url += `&waypoints=${waypointString}`;
+                  }
+                  
+                  url += `&travelmode=driving`;
+                  window.open(url, '_blank');
                 }}
                 className="w-full"
               >
