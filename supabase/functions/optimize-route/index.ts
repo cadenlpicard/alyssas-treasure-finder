@@ -39,14 +39,17 @@ ${addresses.map((addr, index) => `${index + 1}. ${addr}`).join('\n')}
 
 Please analyze these addresses and return ONLY a JSON object with the optimal order and Google Maps URL. ${startingAddress ? 'The first address in the route should always be the starting address, followed by the estate sales in optimal visiting order.' : 'The array should contain the addresses in the most efficient visiting sequence.'}
 
-Important:
+Critical Requirements:
 - Return ONLY the JSON object, no other text
-- Use the exact address strings provided
+- Use the EXACT address strings provided (do not modify them)
+- Each address must appear EXACTLY ONCE in the optimized route
+- Do not duplicate any addresses
 - Consider typical Michigan traffic patterns and road networks
 - Optimize for the shortest total driving time and distance
 - The response must be valid JSON
 ${startingAddress ? '- Always start with the provided starting address' : ''}
 - Generate a proper Google Maps directions URL with all waypoints
+- The optimizedRoute array must contain exactly ${addresses.length} unique addresses
 
 Example format: {
   "optimizedRoute": ["address1", "address2", "address3"],
@@ -104,9 +107,26 @@ Example format: {
       };
     }
 
-    // Validate that all original addresses are included
+    // Remove duplicates and validate uniqueness
+    const uniqueRoute = [...new Set(parsedResponse.optimizedRoute)];
+    if (uniqueRoute.length !== parsedResponse.optimizedRoute.length) {
+      console.warn('Duplicates found in route, removing duplicates');
+      parsedResponse.optimizedRoute = uniqueRoute;
+    }
+
+    // Validate that all original addresses are included and no duplicates exist
     if (parsedResponse.optimizedRoute.length !== addresses.length) {
-      console.warn('Route length mismatch, using original order');
+      console.warn('Route length mismatch after deduplication, using original order');
+      parsedResponse.optimizedRoute = addresses;
+    }
+
+    // Ensure all original addresses are present in the optimized route
+    const originalAddressSet = new Set(addresses);
+    const optimizedAddressSet = new Set(parsedResponse.optimizedRoute);
+    const hasAllAddresses = addresses.every(addr => optimizedAddressSet.has(addr));
+    
+    if (!hasAllAddresses) {
+      console.warn('Missing addresses in optimized route, using original order');
       parsedResponse.optimizedRoute = addresses;
     }
 
