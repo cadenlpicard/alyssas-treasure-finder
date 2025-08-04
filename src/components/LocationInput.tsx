@@ -68,49 +68,46 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
     try {
       let allSuggestions: LocationSuggestion[] = [];
       
-      // Search for all types (includes places with zipcodes)
-      const mainResponse = await fetch(
+      // Search for postcodes first (zipcodes)
+      const postcodeResponse = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=${mapboxToken}&` +
         `country=us&` +
+        `types=postcode&` +
         `autocomplete=true&` +
-        `limit=15`
+        `limit=10`
       );
       
-      const mainData = await mainResponse.json();
-      
-      if (mainData.features && mainData.features.length > 0) {
-        // Convert features to our suggestion format
-        allSuggestions = mainData.features.map((feature: any) => ({
+      const postcodeData = await postcodeResponse.json();
+      if (postcodeData.features && postcodeData.features.length > 0) {
+        const postcodeSuggestions = postcodeData.features.map((feature: any) => ({
           place_name: feature.place_name,
           text: feature.text,
           center: feature.center,
           context: feature.context || []
         }));
+        allSuggestions = [...allSuggestions, ...postcodeSuggestions];
       }
       
-      // If query looks like a zipcode, prioritize postcode search
-      if (/^\d{3,5}$/.test(query)) {
-        const postcodeResponse = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
-          `access_token=${mapboxToken}&` +
-          `country=us&` +
-          `types=postcode&` +
-          `autocomplete=true&` +
-          `limit=8`
-        );
-        
-        const postcodeData = await postcodeResponse.json();
-        if (postcodeData.features && postcodeData.features.length > 0) {
-          const postcodeSuggestions = postcodeData.features.map((feature: any) => ({
-            place_name: feature.place_name,
-            text: feature.text,
-            center: feature.center,
-            context: feature.context || []
-          }));
-          // Put postcodes first
-          allSuggestions = [...postcodeSuggestions, ...allSuggestions];
-        }
+      // Search for places (cities/towns)
+      const placeResponse = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
+        `access_token=${mapboxToken}&` +
+        `country=us&` +
+        `types=place&` +
+        `autocomplete=true&` +
+        `limit=8`
+      );
+      
+      const placeData = await placeResponse.json();
+      if (placeData.features && placeData.features.length > 0) {
+        const placeSuggestions = placeData.features.map((feature: any) => ({
+          place_name: feature.place_name,
+          text: feature.text,
+          center: feature.center,
+          context: feature.context || []
+        }));
+        allSuggestions = [...allSuggestions, ...placeSuggestions];
       }
       
       if (allSuggestions.length > 0) {
