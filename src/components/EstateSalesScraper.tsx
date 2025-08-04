@@ -158,7 +158,7 @@ export const EstateSalesScraper = () => {
           <div className="w-24 h-24 bg-gradient-to-br from-primary to-primary/70 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl ring-4 ring-primary/20">
             <Sparkles className="w-12 h-12 text-primary-foreground" />
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Estate Sales Finder</h2>
+          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Alyssa's Treasure Finder</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             Discover hidden treasures at estate sales with intelligent route planning
           </p>
