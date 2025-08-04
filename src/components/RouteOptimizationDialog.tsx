@@ -151,6 +151,22 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
     onOpenChange(false);
   };
 
+  const generateGoogleMapsUrl = () => {
+    if (optimizedRoute.length < 2) return '';
+    
+    const origin = encodeURIComponent(optimizedRoute[0]);
+    const destination = encodeURIComponent(optimizedRoute[optimizedRoute.length - 1]);
+    const waypoints = optimizedRoute.slice(1, -1).map(address => encodeURIComponent(address)).join('|');
+    
+    let url = `https://www.google.com/maps/dir/${origin}`;
+    if (waypoints) {
+      url += `/${waypoints}`;
+    }
+    url += `/${destination}`;
+    
+    return url;
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -177,6 +193,7 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
               onChange={(e) => setStartingAddress(e.target.value)}
               placeholder="Enter your starting address (e.g., 123 Main St, Grand Blanc, MI)"
               disabled={isOptimizing}
+              autoComplete="street-address"
             />
           </div>
 
@@ -263,20 +280,30 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
                 })}
               </div>
 
-              <div className="flex gap-2 pt-4">
+              <div className="space-y-3 pt-4">
                 <Button 
-                  variant="outline" 
-                  onClick={handleReset}
-                  className="flex-1"
+                  onClick={() => window.open(generateGoogleMapsUrl(), '_blank')}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  Try Different Route
+                  <Navigation className="w-4 h-4 mr-2" />
+                  Get Directions in Google Maps
                 </Button>
-                <Button 
-                  onClick={handleClose}
-                  className="flex-1"
-                >
-                  Done
-                </Button>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleReset}
+                    className="flex-1"
+                  >
+                    Try Different Route
+                  </Button>
+                  <Button 
+                    onClick={handleClose}
+                    className="flex-1"
+                  >
+                    Done
+                  </Button>
+                </div>
               </div>
             </div>
           )}
