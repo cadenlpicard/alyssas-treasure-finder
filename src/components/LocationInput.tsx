@@ -18,38 +18,36 @@ interface LocationInputProps {
   initialLocation?: LocationData;
 }
 
-// Sample Michigan zipcodes - in a real app, this would come from an API
-const michiganLocations = [
-  { city: "Grand Blanc", state: "MI", zipcode: "48439" },
-  { city: "Grand Blanc", state: "MI", zipcode: "48480" },
-  { city: "Flint", state: "MI", zipcode: "48501" },
-  { city: "Flint", state: "MI", zipcode: "48502" },
-  { city: "Flint", state: "MI", zipcode: "48503" },
-  { city: "Detroit", state: "MI", zipcode: "48201" },
-  { city: "Detroit", state: "MI", zipcode: "48202" },
-  { city: "Detroit", state: "MI", zipcode: "48226" },
-  { city: "Ann Arbor", state: "MI", zipcode: "48103" },
-  { city: "Ann Arbor", state: "MI", zipcode: "48104" },
-  { city: "Lansing", state: "MI", zipcode: "48906" },
-  { city: "Lansing", state: "MI", zipcode: "48912" },
-  { city: "Kalamazoo", state: "MI", zipcode: "49001" },
-  { city: "Kalamazoo", state: "MI", zipcode: "49008" },
-  { city: "Grand Rapids", state: "MI", zipcode: "49503" },
-  { city: "Grand Rapids", state: "MI", zipcode: "49506" },
-  { city: "Troy", state: "MI", zipcode: "48083" },
-  { city: "Troy", state: "MI", zipcode: "48084" },
-  { city: "Dearborn", state: "MI", zipcode: "48124" },
-  { city: "Dearborn", state: "MI", zipcode: "48126" },
+// Sample locations - in a real app, this would come from an API
+const sampleLocations = [
+  { city: "New York", state: "NY", zipcode: "10001" },
+  { city: "New York", state: "NY", zipcode: "10002" },
+  { city: "Los Angeles", state: "CA", zipcode: "90001" },
+  { city: "Los Angeles", state: "CA", zipcode: "90002" },
+  { city: "Chicago", state: "IL", zipcode: "60601" },
+  { city: "Chicago", state: "IL", zipcode: "60602" },
+  { city: "Houston", state: "TX", zipcode: "77001" },
+  { city: "Houston", state: "TX", zipcode: "77002" },
+  { city: "Phoenix", state: "AZ", zipcode: "85001" },
+  { city: "Phoenix", state: "AZ", zipcode: "85002" },
+  { city: "Philadelphia", state: "PA", zipcode: "19101" },
+  { city: "Philadelphia", state: "PA", zipcode: "19102" },
+  { city: "San Antonio", state: "TX", zipcode: "78201" },
+  { city: "San Antonio", state: "TX", zipcode: "78202" },
+  { city: "San Diego", state: "CA", zipcode: "92101" },
+  { city: "San Diego", state: "CA", zipcode: "92102" },
+  { city: "Dallas", state: "TX", zipcode: "75201" },
+  { city: "Dallas", state: "TX", zipcode: "75202" },
 ];
 
 export const LocationInput = ({ onLocationChange, initialLocation }: LocationInputProps) => {
   const [city, setCity] = useState(initialLocation?.city || "");
-  const [state, setState] = useState(initialLocation?.state || "MI");
+  const [state, setState] = useState(initialLocation?.state || "");
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(initialLocation || null);
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
 
-  const filteredLocations = michiganLocations.filter(location => {
+  const filteredLocations = sampleLocations.filter(location => {
     const searchTerm = searchValue.toLowerCase();
     return location.city.toLowerCase().includes(searchTerm) || 
            location.zipcode.includes(searchTerm);
@@ -96,7 +94,7 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
             id="state"
             value={state}
             onChange={(e) => setState(e.target.value)}
-            placeholder="MI"
+            placeholder="State"
             className="h-12 border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
           />
         </div>

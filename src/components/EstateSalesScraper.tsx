@@ -42,7 +42,7 @@ interface CrawlResult {
 
 export const EstateSalesScraper = () => {
   const { toast } = useToast();
-  const [url, setUrl] = useState('https://www.estatesales.net/MI/Grand-Blanc');
+  const [url, setUrl] = useState('');
   const [radiusFilter, setRadiusFilter] = useState<number>(25);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -148,7 +148,7 @@ export const EstateSalesScraper = () => {
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Estate Sales Finder</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Discover hidden treasures at Michigan estate sales with intelligent route planning
+            Discover hidden treasures at estate sales with intelligent route planning
           </p>
         </div>
 
@@ -163,7 +163,7 @@ export const EstateSalesScraper = () => {
                 </label>
                 <LocationInput 
                   onLocationChange={setUrl}
-                  initialLocation={{ city: "Grand Blanc", state: "MI", zipcode: "48439" }}
+                  initialLocation={undefined}
                 />
               </div>
               

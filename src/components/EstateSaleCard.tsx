@@ -99,28 +99,21 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
         continue;
       }
       
-      // Address - look for street addresses with numbers and extract city/state
+      // Address - look for street addresses with numbers
       if (!address && (
-        line.match(/\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court)/i) ||
-        (line.includes('Grand Blanc') && line.includes('MI'))
+        line.match(/\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court)/i)
       )) {
         // Clean up address formatting
         let cleanAddress = line
-          .replace(/Grand Blanc,?\s*MI\s*\d*/gi, 'Grand Blanc, MI')
           .replace(/\\\\/g, ' ')
           .replace(/\s+/g, ' ')
           .replace(/^\[|\]$/g, '') // Remove leading/trailing brackets
           .trim();
         
-        // If it's just "Grand Blanc, MI" with extra numbers, clean it up
-        if (cleanAddress.match(/^Grand Blanc,?\s*MI\s*\d+$/i)) {
-          cleanAddress = 'Grand Blanc, MI';
-        }
-        
         address = cleanAddress;
         
         // Extract city and state from address
-        const cityStateMatch = cleanAddress.match(/([^,]+),\s*(MI|Michigan)/i);
+        const cityStateMatch = cleanAddress.match(/([^,]+),\s*([A-Z]{2})/i);
         if (cityStateMatch) {
           city = cityStateMatch[1].trim();
           state = cityStateMatch[2];
@@ -129,8 +122,8 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
       }
       
       // Extract city and state separately if not found in address
-      if (!city && line.match(/([A-Z][a-z\s]+),?\s*(MI|Michigan)/i)) {
-        const cityStateMatch = line.match(/([A-Z][a-z\s]+),?\s*(MI|Michigan)/i);
+      if (!city && line.match(/([A-Z][a-z\s]+),?\s*([A-Z]{2})/i)) {
+        const cityStateMatch = line.match(/([A-Z][a-z\s]+),?\s*([A-Z]{2})/i);
         if (cityStateMatch) {
           city = cityStateMatch[1].trim();
           state = cityStateMatch[2];
@@ -150,8 +143,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
       
       // Description - longer meaningful text
       if (!description && line.length > 20 && line.length < 150 && 
-          !lowerLine.includes('estate sale') && 
-          !lowerLine.includes('grand blanc')) {
+          !lowerLine.includes('estate sale')) {
         description = line;
       }
     }
@@ -162,11 +154,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
     }
     
     if (!title) {
-      title = 'Grand Blanc Estate Sale';
-    }
-    
-    if (!address && lines.some(line => line.includes('Grand Blanc'))) {
-      address = 'Grand Blanc, MI';
+      title = 'Estate Sale';
     }
     
     if (!company && title.toLowerCase().includes('estate')) {
@@ -174,17 +162,17 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
     }
     
     if (!description) {
-      description = 'Estate sale in Grand Blanc, Michigan. Contact organizer for details.';
+      description = 'Estate sale - contact organizer for details.';
     }
     
     return { 
       title: title.trim(), 
       date: date.trim() || 'Date TBD', 
-      address: address.trim() || 'Grand Blanc, MI', 
+      address: address.trim() || '', 
       company: company.trim(),
       description: description.trim(),
-      city: city.trim() || 'Grand Blanc',
-      state: state.trim() || 'MI'
+      city: city.trim(),
+      state: state.trim()
     };
   };
 

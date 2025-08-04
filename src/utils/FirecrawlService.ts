@@ -127,19 +127,19 @@ export class FirecrawlService {
         // Skip empty lines or lines that are clearly not addresses
         if (!cleanLine || cleanLine.length < 5) continue;
         
-        // Look for full address with street, city, state, zip
-        const fullAddressPattern = /(\d+\s+[A-Za-z\s]+(?:dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)\.?)\s*,?\s*([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})?/i;
-        const fullMatch = cleanLine.match(fullAddressPattern);
-        
-        if (fullMatch) {
-          streetAddress = fullMatch[1].trim();
-          city = fullMatch[2].trim();
-          state = fullMatch[3];
-          zipCode = fullMatch[4] || '';
-          fullAddress = `${streetAddress}, ${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
-          console.log('Found full address:', fullAddress);
-          break;
-        }
+      // Look for full address with street, city, state, zip
+      const fullAddressPattern = /(\d+\s+[A-Za-z\s]+(?:dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)\.?)\s*,?\s*([A-Z][a-z\s]+),?\s*([A-Z]{2})\s*(\d{5})?/i;
+      const fullMatch = cleanLine.match(fullAddressPattern);
+      
+      if (fullMatch) {
+        streetAddress = fullMatch[1].trim();
+        city = fullMatch[2].trim();
+        state = fullMatch[3];
+        zipCode = fullMatch[4] || '';
+        fullAddress = `${streetAddress}, ${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
+        console.log('Found full address:', fullAddress);
+        break;
+      }
         
         // Look for just street address (number + street name + type) - but exclude distance info
         const streetPattern = /^\d+\s+[A-Za-z\s]+(?:dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)\.?$/i;
@@ -151,7 +151,7 @@ export class FirecrawlService {
         }
         
         // Look for city, state pattern
-        const cityStatePattern = /^([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})?$/i;
+        const cityStatePattern = /^([A-Z][a-z\s]+),?\s*([A-Z]{2})\s*(\d{5})?$/i;
         const cityMatch = cleanLine.match(cityStatePattern);
         if (cityMatch && !city) {
           city = cityMatch[1].trim();
@@ -173,7 +173,7 @@ export class FirecrawlService {
         sale.streetAddress = streetAddress;
         
         // Look for city/state elsewhere in the block
-        const blockCityMatch = block.match(/([A-Z][a-z\s]+),?\s*(MI|Michigan)/i);
+        const blockCityMatch = block.match(/([A-Z][a-z\s]+),?\s*([A-Z]{2})/i);
         if (blockCityMatch) {
           sale.city = blockCityMatch[1].trim();
           sale.state = blockCityMatch[2];
