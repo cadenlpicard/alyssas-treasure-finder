@@ -101,7 +101,7 @@ export const MapView = ({ sales }: MapViewProps) => {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
+      style: 'mapbox://styles/mapbox/streets-v11',
       center: [avgLng, avgLat],
       zoom: 10
     });
@@ -132,7 +132,7 @@ export const MapView = ({ sales }: MapViewProps) => {
         `;
 
         const iconEl = document.createElement('div');
-        iconEl.innerHTML = '🏠';
+        iconEl.innerHTML = '💰';
         iconEl.style.fontSize = '16px';
         markerEl.appendChild(iconEl);
 
