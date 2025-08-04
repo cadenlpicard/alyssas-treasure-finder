@@ -66,73 +66,86 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
 
     setIsLoading(true);
     try {
-      // Search for places and postcodes only (no addresses or POIs)
-      const response = await fetch(
+      // Search for postcodes first to get specific zipcodes
+      const postcodeResponse = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=${mapboxToken}&` +
         `country=us&` +
-        `types=place,postcode&` +
+        `types=postcode&` +
         `autocomplete=true&` +
-        `limit=12`
+        `limit=8`
       );
       
-      const data = await response.json();
+      const postcodeData = await postcodeResponse.json();
       let allSuggestions: LocationSuggestion[] = [];
       
-      if (data.features && data.features.length > 0) {
-        allSuggestions = data.features.map((feature: any) => ({
+      // Add postcode results first (these will have zipcodes)
+      if (postcodeData.features && postcodeData.features.length > 0) {
+        const postcodeSuggestions = postcodeData.features.map((feature: any) => ({
           place_name: feature.place_name,
           text: feature.text,
           center: feature.center,
           context: feature.context || []
         }));
-
-        // If we have city results but no postcodes, search specifically for postcodes in those cities
-        const cityResults = allSuggestions.filter(s => !s.context?.some(item => item.id.startsWith('postcode.')) && !/\b\d{5}\b/.test(s.place_name));
+        allSuggestions = [...postcodeSuggestions];
+      }
+      
+      // If we don't have enough results, search for places and try to get their zipcodes
+      if (allSuggestions.length < 6) {
+        const placeResponse = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
+          `access_token=${mapboxToken}&` +
+          `country=us&` +
+          `types=place&` +
+          `autocomplete=true&` +
+          `limit=6`
+        );
         
-        if (cityResults.length > 0 && allSuggestions.filter(s => s.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(s.place_name)).length < 3) {
-          // Search for postcodes in the first city result
-          const cityResult = cityResults[0];
-          const cityName = cityResult.text;
-          const stateName = cityResult.context?.find(item => item.id.startsWith('region.'))?.text;
-          
-          if (stateName) {
-            const postcodeResponse = await fetch(
-              `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(cityName + ' ' + stateName)}.json?` +
-              `access_token=${mapboxToken}&` +
-              `country=us&` +
-              `types=postcode&` +
-              `limit=6`
-            );
+        const placeData = await placeResponse.json();
+        if (placeData.features && placeData.features.length > 0) {
+          // For each place, try to find zipcodes in that area
+          for (const place of placeData.features.slice(0, 3)) {
+            const cityName = place.text;
+            const stateName = place.context?.find((item: any) => item.id.startsWith('region.'))?.text;
             
-            const postcodeData = await postcodeResponse.json();
-            if (postcodeData.features && postcodeData.features.length > 0) {
-              const postcodeSuggestions = postcodeData.features.map((feature: any) => ({
-                place_name: feature.place_name,
-                text: feature.text,
-                center: feature.center,
-                context: feature.context || []
-              }));
-              
-              allSuggestions = [...allSuggestions, ...postcodeSuggestions];
+            if (stateName) {
+              try {
+                // Search for zipcodes in this specific city
+                const cityZipResponse = await fetch(
+                  `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(cityName)}.json?` +
+                  `access_token=${mapboxToken}&` +
+                  `country=us&` +
+                  `types=postcode&` +
+                  `bbox=${place.bbox?.[0]},${place.bbox?.[1]},${place.bbox?.[2]},${place.bbox?.[3]}&` +
+                  `limit=3`
+                );
+                
+                const cityZipData = await cityZipResponse.json();
+                if (cityZipData.features && cityZipData.features.length > 0) {
+                  const cityZipSuggestions = cityZipData.features.map((feature: any) => ({
+                    place_name: feature.place_name,
+                    text: feature.text,
+                    center: feature.center,
+                    context: feature.context || []
+                  }));
+                  allSuggestions = [...allSuggestions, ...cityZipSuggestions];
+                }
+              } catch (error) {
+                // Continue if individual city search fails
+                console.log('Failed to get zipcodes for', cityName);
+              }
             }
           }
         }
       }
       
       if (allSuggestions.length > 0) {
-        // Sort suggestions to prioritize those with zipcodes
-        const sortedSuggestions = allSuggestions.sort((a, b) => {
-          const aHasZipcode = a.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(a.place_name);
-          const bHasZipcode = b.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(b.place_name);
-          
-          if (aHasZipcode && !bHasZipcode) return -1;
-          if (!aHasZipcode && bHasZipcode) return 1;
-          return 0;
-        });
+        // Remove duplicates and limit results
+        const uniqueSuggestions = allSuggestions.filter((suggestion, index, self) => 
+          index === self.findIndex(s => s.place_name === suggestion.place_name)
+        );
         
-        // Limit to 8 results
-        setSuggestions(sortedSuggestions.slice(0, 8));
+        setSuggestions(uniqueSuggestions.slice(0, 8));
         setShowSuggestions(true);
       } else {
         setSuggestions([]);
