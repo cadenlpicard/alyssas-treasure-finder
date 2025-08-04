@@ -174,14 +174,75 @@ export class FirecrawlService {
       if (sale.status) descParts.push(sale.status);
       sale.description = descParts.join(' • ');
       
-      // Only add sales that have at least a title
-      if (sale.title && sale.title.length > 0) {
+      // Only add sales that have at least a title and are today or later
+      if (sale.title && sale.title.length > 0 && this.isTodayOrLater(sale.date)) {
         sales.push(sale);
         console.log(`Parsed sale: "${sale.title}" at ${sale.address || sale.streetAddress}`);
       }
     }
     
-    console.log(`Successfully parsed ${sales.length} estate sales`);
+    console.log(`Successfully parsed ${sales.length} estate sales (filtered for today or later)`);
     return sales;
+  }
+
+  // Helper method to check if a sale date is today or later
+  static isTodayOrLater(dateString: string): boolean {
+    if (!dateString || dateString === 'Date TBD') {
+      return true; // Include sales without specific dates
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    try {
+      // Parse estate sale dates that can be in various formats like:
+      // "Dec 14, 2024"
+      // "Dec 14, Dec 15"
+      // "Dec 14"
+      
+      const currentYear = today.getFullYear();
+      const dateToCheck = this.parseSaleDate(dateString, currentYear);
+      
+      if (!dateToCheck) {
+        return true; // If we can't parse it, include it
+      }
+
+      return dateToCheck >= today;
+    } catch (error) {
+      console.warn('Error parsing date:', dateString, error);
+      return true; // If error parsing, include the sale
+    }
+  }
+
+  // Helper method to parse estate sale date strings
+  static parseSaleDate(dateString: string, currentYear: number): Date | null {
+    try {
+      // Clean the date string
+      const cleanDate = dateString.trim();
+      
+      // Handle formats like "Dec 14, 2024" or "Dec 14"
+      const dateWithYearMatch = cleanDate.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})(?:,\s*(\d{4}))?/i);
+      
+      if (dateWithYearMatch) {
+        const [, month, day, year] = dateWithYearMatch;
+        const monthMap: { [key: string]: number } = {
+          'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+          'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+        };
+        
+        const monthIndex = monthMap[month.toLowerCase()];
+        const dayNum = parseInt(day);
+        const yearNum = year ? parseInt(year) : currentYear;
+        
+        if (monthIndex !== undefined && dayNum >= 1 && dayNum <= 31) {
+          return new Date(yearNum, monthIndex, dayNum);
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('Error parsing sale date:', dateString, error);
+      return null;
+    }
   }
 }

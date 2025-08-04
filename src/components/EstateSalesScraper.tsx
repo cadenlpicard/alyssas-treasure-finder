@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { FirecrawlService } from '@/utils/FirecrawlService';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Loader2, Sparkles } from 'lucide-react';
@@ -69,7 +70,7 @@ export const EstateSalesScraper = () => {
     }
   };
 
-  const handlePlanRoute = () => {
+  const handlePlanRoute = async () => {
     if (selectedSales.length < 2) {
       toast({
         title: "Selection Required",
@@ -78,7 +79,103 @@ export const EstateSalesScraper = () => {
       });
       return;
     }
+
+    // Extract addresses from selected sales
+    const addresses = selectedSales.map(sale => {
+      // Try to get the best available address
+      const address = sale.address || 
+        (sale.markdown ? extractAddressFromMarkdown(sale.markdown) : null) ||
+        'Grand Blanc, MI';
+      return address;
+    });
+
+    console.log('Planning route for addresses:', addresses);
+
+    try {
+      // Call the ChatGPT optimization service
+      const { data, error } = await supabase.functions.invoke('optimize-route', {
+        body: { addresses }
+      });
+
+      if (error) {
+        console.error('Route optimization error:', error);
+        toast({
+          title: "Route Optimization Failed",
+          description: "Using original order instead",
+          variant: "destructive",
+        });
+      } else if (data?.optimizedRoute) {
+        console.log('Optimized route received:', data.optimizedRoute);
+        
+        // Reorder selectedSales based on optimized route
+        const reorderedSales = data.optimizedRoute.map((optimizedAddress: string) => {
+          return selectedSales.find(sale => {
+            const saleAddress = sale.address || 
+              (sale.markdown ? extractAddressFromMarkdown(sale.markdown) : null) ||
+              'Grand Blanc, MI';
+            return saleAddress === optimizedAddress;
+          });
+        }).filter(Boolean); // Remove any undefined entries
+
+        setSelectedSales(reorderedSales);
+        
+        toast({
+          title: "Route Optimized",
+          description: "Estate sales reordered for optimal route planning",
+        });
+      }
+    } catch (error) {
+      console.error('Route optimization error:', error);
+      toast({
+        title: "Route Optimization Failed",
+        description: "Using original order instead",
+        variant: "destructive",
+      });
+    }
+
     setShowRouteMap(true);
+  };
+
+  // Helper function to extract address from markdown
+  const extractAddressFromMarkdown = (markdown: string): string | null => {
+    if (!markdown) return null;
+    
+    // Look for street address patterns in markdown
+    const streetAddressPattern = /(\d+\s+[^\\,\n]+(?:pkwy|parkway|drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{2,}\s*\\{2,}\s*([^\\,\n]+),?\s*(MI|Michigan)\s*(\d{5})?/i;
+    const streetMatch = markdown.match(streetAddressPattern);
+    
+    if (streetMatch) {
+      const streetAddress = streetMatch[1].trim();
+      const city = streetMatch[2].trim();
+      const state = streetMatch[3] || 'MI';
+      const zip = streetMatch[4] || '';
+      
+      let fullAddress = streetAddress + `, ${city}, ${state}`;
+      if (zip) {
+        fullAddress += ` ${zip}`;
+      }
+      
+      return fullAddress;
+    }
+    
+    // Look for city, state, zip pattern
+    const cityStatePattern = /([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})/i;
+    const cityMatch = markdown.match(cityStatePattern);
+    
+    if (cityMatch) {
+      const city = cityMatch[1].trim();
+      const state = cityMatch[2] || 'MI';
+      const zip = cityMatch[3] || '';
+      
+      let fullAddress = `${city}, ${state}`;
+      if (zip) {
+        fullAddress += ` ${zip}`;
+      }
+      
+      return fullAddress;
+    }
+    
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
