@@ -1,73 +1,228 @@
-# Welcome to your Lovable project
+# 🏴‍☠️ Alyssa's Treasure Finder
 
-## Project info
+A sophisticated estate sales discovery and route optimization platform that helps treasure hunters find the best deals and plan efficient routes to multiple estate sales.
 
-**URL**: https://lovable.dev/projects/d4e415c8-35e9-4f6b-87c0-0ac6fbe20ff2
+![Estate Sales Finder](https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=400&fit=crop)
 
-## How can I edit this code?
+## ✨ Features
 
-There are several ways of editing your application.
+### 🔍 Smart Estate Sales Discovery
+- **Location-Based Search**: Find estate sales in any city, state, or ZIP code
+- **Radius Filtering**: Search within 5-50 miles or view all available sales
+- **Intelligent Deduplication**: Automatically removes duplicate listings
+- **Real-Time Scraping**: Uses Firecrawl to gather the latest estate sale data
 
-**Use Lovable**
+### 🗺️ Interactive Map View
+- **Dual View Modes**: Toggle between list and map views
+- **Mapbox Integration**: Beautiful, interactive maps with custom markers
+- **Popup Details**: Click markers to see estate sale information
+- **Geocoding**: Automatic address-to-coordinates conversion
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d4e415c8-35e9-4f6b-87c0-0ac6fbe20ff2) and start prompting.
+### 🛣️ Route Optimization
+- **Multi-Stop Planning**: Select multiple estate sales for route planning
+- **Efficient Routing**: Get optimized directions to visit all selected sales
+- **Distance Calculations**: See distances and estimated travel times
 
-Changes made via Lovable will be committed automatically to this repo.
+### 🔐 Security Features
+- **Passcode Protection**: Pirate-themed access control
+- **Secure Backend**: Supabase integration with Row Level Security
 
-**Use your preferred IDE**
+## 🛠️ Tech Stack
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **Frontend**: React 18, TypeScript, Vite
+- **Styling**: Tailwind CSS, shadcn/ui components
+- **Backend**: Supabase (Database, Auth, Edge Functions)
+- **Maps**: Mapbox GL JS
+- **Web Scraping**: Firecrawl API
+- **Routing**: React Router DOM
+- **State Management**: React Query (TanStack Query)
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🚀 Quick Start
 
-Follow these steps:
+### Prerequisites
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- Node.js 18+ and npm
+- Supabase account
+- Mapbox account
+- Firecrawl API account
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Installation
 
-# Step 3: Install the necessary dependencies.
-npm i
+1. **Clone the repository**
+   ```bash
+   git clone <YOUR_GIT_URL>
+   cd <YOUR_PROJECT_NAME>
+   ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   
+   Create a `.env.local` file in the root directory:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_project_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. **Configure Supabase Edge Function Secrets**
+   
+   Add these secrets in your Supabase dashboard under Edge Functions:
+   ```
+   MAPBOX_ACCESS_TOKEN=your_mapbox_public_token
+   FIRECRAWL_API_KEY=your_firecrawl_api_key
+   ```
+
+5. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+## ⚙️ Configuration
+
+### Supabase Setup
+
+1. Create a new Supabase project
+2. Update the environment variables with your project details
+3. Deploy the Edge Functions:
+   ```bash
+   supabase functions deploy firecrawl-scrape
+   supabase functions deploy get-mapbox-token
+   supabase functions deploy optimize-route
+   ```
+
+### Mapbox Setup
+
+1. Create a Mapbox account at [mapbox.com](https://mapbox.com)
+2. Get your public access token from the dashboard
+3. Add the token to your Supabase Edge Function secrets
+
+### Firecrawl Setup
+
+1. Sign up for Firecrawl at [firecrawl.dev](https://firecrawl.dev)
+2. Get your API key from the dashboard
+3. Add the API key to your Supabase Edge Function secrets
+
+## 🎯 Usage
+
+### Accessing the Application
+
+1. Navigate to the application URL
+2. Enter the secret passcode: `treasure`
+3. You'll be taken to the main estate sales finder interface
+
+### Finding Estate Sales
+
+1. **Select Location**: Use the location input to choose your search area
+2. **Set Radius**: Choose how far you want to search (5-50 miles)
+3. **Search**: Click "Discover Estate Sales" to find available sales
+4. **View Results**: Toggle between list and map views
+
+### Planning Routes
+
+1. **Select Sales**: Check the boxes next to estate sales you want to visit
+2. **Plan Route**: Click the "Plan Route" button when you have 2+ selections
+3. **Get Directions**: View the optimized route with turn-by-turn directions
+
+## 📁 Project Structure
+
+```
+src/
+├── components/
+│   ├── ui/                    # shadcn/ui components
+│   ├── EstateSaleCard.tsx     # Individual estate sale display
+│   ├── EstateSalesScraper.tsx # Main application component
+│   ├── LocationInput.tsx     # Location search input
+│   ├── MapView.tsx           # Mapbox map integration
+│   ├── PasscodeWindow.tsx    # Security access control
+│   └── RouteOptimizationDialog.tsx # Route planning modal
+├── pages/
+│   ├── Index.tsx             # Main page
+│   └── NotFound.tsx          # 404 page
+├── utils/
+│   └── FirecrawlService.ts   # Web scraping service
+├── integrations/
+│   └── supabase/             # Supabase configuration
+└── assets/                   # Images and static files
 ```
 
-**Edit a file directly in GitHub**
+## 🔧 Edge Functions
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### firecrawl-scrape
+Handles web scraping of estate sale websites using the Firecrawl API.
 
-**Use GitHub Codespaces**
+### get-mapbox-token
+Securely provides Mapbox access tokens to the frontend.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### optimize-route
+Calculates optimal routes between multiple estate sale locations.
 
-## What technologies are used for this project?
+## 🎨 Design System
 
-This project is built with:
+The application uses a custom design system built on Tailwind CSS with:
+- Semantic color tokens defined in `index.css`
+- Custom component variants in `tailwind.config.ts`
+- Responsive design patterns
+- Dark/light mode support
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🚀 Deployment
 
-## How can I deploy this project?
+### Using Lovable (Recommended)
 
-Simply open [Lovable](https://lovable.dev/projects/d4e415c8-35e9-4f6b-87c0-0ac6fbe20ff2) and click on Share -> Publish.
+1. Open your [Lovable Project](https://lovable.dev/projects/d4e415c8-35e9-4f6b-87c0-0ac6fbe20ff2)
+2. Click "Share" → "Publish"
+3. Your app will be deployed automatically
 
-## Can I connect a custom domain to my Lovable project?
+### Manual Deployment
 
-Yes, you can!
+1. Build the project:
+   ```bash
+   npm run build
+   ```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+2. Deploy the `dist` folder to your hosting platform of choice
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+3. Ensure environment variables are configured in your hosting platform
+
+## 🔐 Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `VITE_SUPABASE_URL` | Your Supabase project URL | Yes |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anonymous key | Yes |
+
+### Edge Function Secrets (in Supabase)
+
+| Secret | Description | Required |
+|--------|-------------|----------|
+| `MAPBOX_ACCESS_TOKEN` | Mapbox public access token | Yes |
+| `FIRECRAWL_API_KEY` | Firecrawl API key for web scraping | Yes |
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+If you need help:
+1. Check the [Lovable Documentation](https://docs.lovable.dev/)
+2. Join the [Lovable Discord Community](https://discord.com/channels/1119885301872070706/1280461670979993613)
+3. Create an issue in this repository
+
+## 🙏 Acknowledgments
+
+- Built with [Lovable](https://lovable.dev)
+- Maps powered by [Mapbox](https://mapbox.com)
+- Web scraping by [Firecrawl](https://firecrawl.dev)
+- Backend by [Supabase](https://supabase.com)
+- UI components by [shadcn/ui](https://ui.shadcn.com)
