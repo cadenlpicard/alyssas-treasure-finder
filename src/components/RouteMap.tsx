@@ -327,11 +327,27 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
 
   // Calculate optimized route using Mapbox Optimization API (TSP solver)
   const calculateOptimizedRoute = async (coordinates: [number, number][], salesData: EstateSale[], includeStart: boolean = false) => {
-    let routeCoords = [...coordinates];
+    // Remove duplicate coordinates to prevent duplicate waypoints in Google Maps
+    const uniqueCoordinates: [number, number][] = [];
+    const uniqueSalesData: EstateSale[] = [];
+    const seenCoords = new Set<string>();
+    
+    coordinates.forEach((coord, index) => {
+      const coordKey = `${coord[0].toFixed(6)},${coord[1].toFixed(6)}`;
+      if (!seenCoords.has(coordKey) && index < salesData.length) {
+        seenCoords.add(coordKey);
+        uniqueCoordinates.push(coord);
+        uniqueSalesData.push(salesData[index]);
+      }
+    });
+    
+    console.log(`Removed ${coordinates.length - uniqueCoordinates.length} duplicate coordinates`);
+    
+    let routeCoords = [...uniqueCoordinates];
     
     // Add starting address as first coordinate if provided
     if (includeStart && startingCoords) {
-      routeCoords = [startingCoords, ...coordinates];
+      routeCoords = [startingCoords, ...uniqueCoordinates];
     }
     
     if (routeCoords.length < 2) return null;
@@ -679,7 +695,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
                 'line-cap': 'round'
               },
               paint: {
-                'line-color': 'hsl(var(--primary))',
+                'line-color': '#2563eb',
                 'line-width': 4,
                 'line-opacity': 0.8
               }
