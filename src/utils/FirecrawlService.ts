@@ -72,7 +72,7 @@ export class FirecrawlService {
     const sales: any[] = [];
     
     // Split by image patterns - each estate sale starts with [![](
-    const saleBlocks = markdown.split(/(?=\[!\[\]\(https:\/\/picturescdn\.estatesales\.net)/);
+    const saleBlocks = markdown.split(/(?=\[!\[.*?\]\(https:\/\/picturescdn\.estatesales\.net)/);    // Split by image patterns
     
     console.log(`Found ${saleBlocks.length} potential sale blocks`);
     console.log('First few blocks:', saleBlocks.slice(0, 3));
