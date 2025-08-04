@@ -27,6 +27,7 @@ interface EstateSale {
   state?: string;
   zipCode?: string;
   streetAddress?: string;
+  uniqueId?: string;
 }
 
 interface CrawlResult {
@@ -67,10 +68,14 @@ export const EstateSalesScraper = () => {
   };
 
   const handleSaleSelection = (sale: EstateSale, selected: boolean) => {
+    const saleId = sale.uniqueId || `${sale.title}-${sale.address}-${sale.date}`;
     if (selected) {
       setSelectedSales(prev => [...prev, sale]);
     } else {
-      setSelectedSales(prev => prev.filter(s => s.markdown === sale.markdown));
+      setSelectedSales(prev => prev.filter(s => {
+        const existingId = s.uniqueId || `${s.title}-${s.address}-${s.date}`;
+        return existingId !== saleId;
+      }));
     }
   };
 
@@ -281,6 +286,7 @@ export const EstateSalesScraper = () => {
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 {filteredData.map((item: any, index: number) => {
+                  const uniqueId = `sale-${index}-${item.title?.slice(0, 20) || 'untitled'}-${item.address?.slice(0, 20) || 'no-address'}`.replace(/[^a-zA-Z0-9-]/g, '-');
                   const saleData: EstateSale = {
                     title: item.title,
                     date: item.date,
@@ -294,14 +300,20 @@ export const EstateSalesScraper = () => {
                     city: item.city,
                     state: item.state,
                     zipCode: item.zipCode,
-                    streetAddress: item.streetAddress
+                    streetAddress: item.streetAddress,
+                    uniqueId: uniqueId
                   };
+                  
+                  const isSelected = selectedSales.some(s => {
+                    const existingId = s.uniqueId || `${s.title}-${s.address}-${s.date}`;
+                    return existingId === uniqueId;
+                  });
                   
                   return (
                     <EstateSaleCard 
-                      key={index} 
+                      key={uniqueId} 
                       sale={saleData}
-                      isSelected={selectedSales.some(s => s.markdown === saleData.markdown)}
+                      isSelected={isSelected}
                       onSelect={handleSaleSelection}
                     />
                   );

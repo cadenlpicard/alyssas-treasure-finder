@@ -18,6 +18,7 @@ interface EstateSale {
   state?: string;
   zipCode?: string;
   streetAddress?: string;
+  uniqueId?: string;
 }
 
 interface EstateSaleCardProps {
