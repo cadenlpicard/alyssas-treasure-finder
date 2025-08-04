@@ -136,12 +136,14 @@ export const MapView = ({ sales }: MapViewProps) => {
         iconEl.style.fontSize = '16px';
         markerEl.appendChild(iconEl);
 
-        // Add hover effect
+        // Add hover effect using transform that doesn't interfere with Mapbox positioning
         markerEl.addEventListener('mouseenter', () => {
-          markerEl.style.transform = 'scale(1.1)';
+          markerEl.style.filter = 'brightness(1.1)';
+          markerEl.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
         });
         markerEl.addEventListener('mouseleave', () => {
-          markerEl.style.transform = 'scale(1)';
+          markerEl.style.filter = 'brightness(1)';
+          markerEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
         });
 
         // Create marker and popup
