@@ -66,28 +66,63 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
 
     setIsLoading(true);
     try {
-      // First search for places and postcodes
+      // Search for places, postcodes, and addresses
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=${mapboxToken}&` +
         `country=us&` +
-        `types=place,postcode&` +
+        `types=place,postcode,address,poi&` +
         `autocomplete=true&` +
-        `limit=8`
+        `limit=12`
       );
       
       const data = await response.json();
+      let allSuggestions: LocationSuggestion[] = [];
       
       if (data.features && data.features.length > 0) {
-        const locationSuggestions: LocationSuggestion[] = data.features.map((feature: any) => ({
+        allSuggestions = data.features.map((feature: any) => ({
           place_name: feature.place_name,
           text: feature.text,
           center: feature.center,
           context: feature.context || []
         }));
+
+        // If we have city results but no postcodes, search specifically for postcodes in those cities
+        const cityResults = allSuggestions.filter(s => !s.context?.some(item => item.id.startsWith('postcode.')) && !/\b\d{5}\b/.test(s.place_name));
         
+        if (cityResults.length > 0 && allSuggestions.filter(s => s.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(s.place_name)).length < 3) {
+          // Search for postcodes in the first city result
+          const cityResult = cityResults[0];
+          const cityName = cityResult.text;
+          const stateName = cityResult.context?.find(item => item.id.startsWith('region.'))?.text;
+          
+          if (stateName) {
+            const postcodeResponse = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(cityName + ' ' + stateName)}.json?` +
+              `access_token=${mapboxToken}&` +
+              `country=us&` +
+              `types=postcode&` +
+              `limit=6`
+            );
+            
+            const postcodeData = await postcodeResponse.json();
+            if (postcodeData.features && postcodeData.features.length > 0) {
+              const postcodeSuggestions = postcodeData.features.map((feature: any) => ({
+                place_name: feature.place_name,
+                text: feature.text,
+                center: feature.center,
+                context: feature.context || []
+              }));
+              
+              allSuggestions = [...allSuggestions, ...postcodeSuggestions];
+            }
+          }
+        }
+      }
+      
+      if (allSuggestions.length > 0) {
         // Sort suggestions to prioritize those with zipcodes
-        const sortedSuggestions = locationSuggestions.sort((a, b) => {
+        const sortedSuggestions = allSuggestions.sort((a, b) => {
           const aHasZipcode = a.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(a.place_name);
           const bHasZipcode = b.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(b.place_name);
           
@@ -96,7 +131,8 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
           return 0;
         });
         
-        setSuggestions(sortedSuggestions);
+        // Limit to 8 results
+        setSuggestions(sortedSuggestions.slice(0, 8));
         setShowSuggestions(true);
       } else {
         setSuggestions([]);
