@@ -38,19 +38,29 @@ const sampleLocations = [
   { city: "San Diego", state: "CA", zipcode: "92102" },
   { city: "Dallas", state: "TX", zipcode: "75201" },
   { city: "Dallas", state: "TX", zipcode: "75202" },
+  { city: "Detroit", state: "MI", zipcode: "48201" },
+  { city: "Detroit", state: "MI", zipcode: "48202" },
+  { city: "Detroit", state: "MI", zipcode: "48226" },
 ];
 
 export const LocationInput = ({ onLocationChange, initialLocation }: LocationInputProps) => {
-  const [city, setCity] = useState(initialLocation?.city || "");
-  const [state, setState] = useState(initialLocation?.state || "");
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(initialLocation || null);
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
 
   const filteredLocations = sampleLocations.filter(location => {
-    const searchTerm = searchValue.toLowerCase();
-    return location.city.toLowerCase().includes(searchTerm) || 
-           location.zipcode.includes(searchTerm);
+    if (!searchValue.trim()) return true;
+    
+    const searchTerm = searchValue.toLowerCase().trim();
+    const cityMatch = location.city.toLowerCase().includes(searchTerm);
+    const stateMatch = location.state.toLowerCase().includes(searchTerm);
+    const zipcodeMatch = location.zipcode.includes(searchTerm);
+    
+    // Handle "city, state" format like "detroit, mi"
+    const cityStateFormat = `${location.city.toLowerCase()}, ${location.state.toLowerCase()}`;
+    const cityStateMatch = cityStateFormat.includes(searchTerm);
+    
+    return cityMatch || stateMatch || zipcodeMatch || cityStateMatch;
   });
 
   const generateUrl = (location: LocationData) => {
@@ -66,40 +76,11 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
 
   const handleLocationSelect = (location: LocationData) => {
     setSelectedLocation(location);
-    setCity(location.city);
-    setState(location.state);
     setOpen(false);
   };
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="city" className="text-sm font-medium text-foreground">
-            City
-          </Label>
-          <Input
-            id="city"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="Enter city"
-            className="h-12 border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="state" className="text-sm font-medium text-foreground">
-            State
-          </Label>
-          <Input
-            id="state"
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-            placeholder="State"
-            className="h-12 border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
-          />
-        </div>
-      </div>
-
       <div className="space-y-2">
         <Label className="text-sm font-medium text-foreground flex items-center gap-2">
           <MapPin className="w-4 h-4 text-primary" />
