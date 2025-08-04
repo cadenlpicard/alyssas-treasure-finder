@@ -70,7 +70,7 @@ export const EstateSalesScraper = () => {
     if (selected) {
       setSelectedSales(prev => [...prev, sale]);
     } else {
-      setSelectedSales(prev => prev.filter(s => s !== sale));
+      setSelectedSales(prev => prev.filter(s => s.markdown === sale.markdown));
     }
   };
 
