@@ -141,9 +141,11 @@ export class FirecrawlService {
           break;
         }
         
-        // Look for just street address (number + street name + type)
+        // Look for just street address (number + street name + type) - but exclude distance info
         const streetPattern = /^\d+\s+[A-Za-z\s]+(?:dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)\.?$/i;
-        if (streetPattern.test(cleanLine) && !streetAddress) {
+        const distancePattern = /^\d+\s+miles?\s+away$/i;
+        
+        if (streetPattern.test(cleanLine) && !distancePattern.test(cleanLine) && !streetAddress) {
           streetAddress = cleanLine;
           console.log('Found street address:', streetAddress);
         }
