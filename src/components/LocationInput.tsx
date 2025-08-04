@@ -68,55 +68,97 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
     try {
       let allSuggestions: LocationSuggestion[] = [];
       
-      // Search for postcodes first (zipcodes)
-      const postcodeResponse = await fetch(
+      // Strategy 1: Search for addresses (often includes zipcodes)
+      const addressResponse = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=${mapboxToken}&` +
         `country=us&` +
-        `types=postcode&` +
+        `types=address,postcode&` +
         `autocomplete=true&` +
-        `limit=10`
+        `limit=8`
       );
       
-      const postcodeData = await postcodeResponse.json();
-      if (postcodeData.features && postcodeData.features.length > 0) {
-        const postcodeSuggestions = postcodeData.features.map((feature: any) => ({
+      const addressData = await addressResponse.json();
+      if (addressData.features && addressData.features.length > 0) {
+        const addressSuggestions = addressData.features.map((feature: any) => ({
           place_name: feature.place_name,
           text: feature.text,
           center: feature.center,
           context: feature.context || []
         }));
-        allSuggestions = [...allSuggestions, ...postcodeSuggestions];
+        allSuggestions = [...allSuggestions, ...addressSuggestions];
       }
       
-      // Search for places (cities/towns)
+      // Strategy 2: Search for places and then reverse geocode to get zipcode
       const placeResponse = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=${mapboxToken}&` +
         `country=us&` +
         `types=place&` +
         `autocomplete=true&` +
-        `limit=8`
+        `limit=5`
       );
       
       const placeData = await placeResponse.json();
       if (placeData.features && placeData.features.length > 0) {
-        const placeSuggestions = placeData.features.map((feature: any) => ({
-          place_name: feature.place_name,
-          text: feature.text,
-          center: feature.center,
-          context: feature.context || []
-        }));
-        allSuggestions = [...allSuggestions, ...placeSuggestions];
+        // For each place, try to get zipcode via reverse geocoding
+        const placePromises = placeData.features.map(async (feature: any) => {
+          try {
+            const reverseResponse = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${feature.center[0]},${feature.center[1]}.json?` +
+              `access_token=${mapboxToken}&` +
+              `types=postcode&` +
+              `limit=1`
+            );
+            const reverseData = await reverseResponse.json();
+            
+            // Combine original place info with zipcode from reverse geocoding
+            let enhancedContext = feature.context || [];
+            if (reverseData.features && reverseData.features.length > 0) {
+              const zipcodeFeature = reverseData.features[0];
+              enhancedContext = [...enhancedContext, {
+                id: 'postcode.' + zipcodeFeature.text,
+                text: zipcodeFeature.text
+              }];
+            }
+            
+            return {
+              place_name: feature.place_name,
+              text: feature.text,
+              center: feature.center,
+              context: enhancedContext
+            };
+          } catch (error) {
+            // Return original feature if reverse geocoding fails
+            return {
+              place_name: feature.place_name,
+              text: feature.text,
+              center: feature.center,
+              context: feature.context || []
+            };
+          }
+        });
+        
+        const enhancedPlaces = await Promise.all(placePromises);
+        allSuggestions = [...allSuggestions, ...enhancedPlaces];
       }
       
       if (allSuggestions.length > 0) {
-        // Remove duplicates and limit results
+        // Remove duplicates and prioritize results with zipcodes
         const uniqueSuggestions = allSuggestions.filter((suggestion, index, self) => 
           index === self.findIndex(s => s.place_name === suggestion.place_name)
         );
         
-        setSuggestions(uniqueSuggestions.slice(0, 8));
+        // Sort so items with zipcodes come first
+        const sortedSuggestions = uniqueSuggestions.sort((a, b) => {
+          const aHasZip = a.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(a.place_name);
+          const bHasZip = b.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(b.place_name);
+          if (aHasZip && !bHasZip) return -1;
+          if (!aHasZip && bHasZip) return 1;
+          return 0;
+        });
+        
+        setSuggestions(sortedSuggestions.slice(0, 8));
         setShowSuggestions(true);
       } else {
         setSuggestions([]);
