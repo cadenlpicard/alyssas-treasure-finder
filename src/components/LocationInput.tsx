@@ -66,12 +66,12 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
 
     setIsLoading(true);
     try {
-      // Search for places, postcodes, and addresses
+      // Search for places and postcodes only (no addresses or POIs)
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=${mapboxToken}&` +
         `country=us&` +
-        `types=place,postcode,address,poi&` +
+        `types=place,postcode&` +
         `autocomplete=true&` +
         `limit=12`
       );
