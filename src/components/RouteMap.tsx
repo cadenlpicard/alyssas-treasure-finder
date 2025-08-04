@@ -327,21 +327,23 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
 
   // Calculate optimized route using Mapbox Optimization API (TSP solver)
   const calculateOptimizedRoute = async (coordinates: [number, number][], salesData: EstateSale[], includeStart: boolean = false) => {
-    // Remove duplicate coordinates to prevent duplicate waypoints in Google Maps
-    const uniqueCoordinates: [number, number][] = [];
+    // Remove duplicate sales data based on address to prevent duplicate waypoints
     const uniqueSalesData: EstateSale[] = [];
-    const seenCoords = new Set<string>();
+    const uniqueCoordinates: [number, number][] = [];
+    const seenAddresses = new Set<string>();
     
-    coordinates.forEach((coord, index) => {
-      const coordKey = `${coord[0].toFixed(6)},${coord[1].toFixed(6)}`;
-      if (!seenCoords.has(coordKey) && index < salesData.length) {
-        seenCoords.add(coordKey);
-        uniqueCoordinates.push(coord);
-        uniqueSalesData.push(salesData[index]);
+    salesData.forEach((sale, index) => {
+      if (index < coordinates.length) {
+        const addressKey = sale.address.toLowerCase().trim();
+        if (!seenAddresses.has(addressKey)) {
+          seenAddresses.add(addressKey);
+          uniqueSalesData.push(sale);
+          uniqueCoordinates.push(coordinates[index]);
+        }
       }
     });
     
-    console.log(`Removed ${coordinates.length - uniqueCoordinates.length} duplicate coordinates`);
+    console.log(`Removed ${salesData.length - uniqueSalesData.length} duplicate sales`);
     
     let routeCoords = [...uniqueCoordinates];
     
