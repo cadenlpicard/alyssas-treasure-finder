@@ -95,9 +95,10 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
     geocodeAddresses();
   }, [mapboxToken, sales]);
 
-  // Initialize map (only once)
+  // Initialize map (only once when we have coordinates)
   useEffect(() => {
-    if (!mapContainer.current || !mapboxToken || !Object.keys(coordinates).length || mapInitialized) return;
+    const hasCoords = Object.keys(coordinates).length > 0;
+    if (!mapContainer.current || !mapboxToken || mapInitialized || !hasCoords) return;
 
     mapboxgl.accessToken = mapboxToken;
     
@@ -126,7 +127,7 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
         setMapInitialized(false);
       }
     };
-  }, [mapboxToken, Object.keys(coordinates).length, mapInitialized]);
+  }, [mapboxToken, Object.keys(coordinates).length > 0]);
 
   // Update markers when sales or selections change (without reinitializing map)
   useEffect(() => {
