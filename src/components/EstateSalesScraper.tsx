@@ -242,22 +242,47 @@ export const EstateSalesScraper = () => {
         
         {/* Results Display */}
         {viewMode === 'map' ? (
-          <MapView sales={filteredData.map((item: any, index: number) => ({
-            title: item.title || '',
-            address: item.address || '',
-            city: item.city || '',
-            state: item.state || '',
-            zipCode: item.zipCode || '',
-            company: item.company || '',
-            date: item.date || '',
-            time: item.time || '',
-            distance: item.distance || '',
-            status: item.status || '',
-            featured: item.featured || '',
-            url: item.url || item.sourceURL || '',
-            imageUrl: item.imageUrl || '',
-            description: item.description || ''
-          }))} />
+          <MapView 
+            sales={filteredData.map((item: any, index: number) => ({
+              title: item.title || '',
+              address: item.address || '',
+              city: item.city || '',
+              state: item.state || '',
+              zipCode: item.zipCode || '',
+              company: item.company || '',
+              date: item.date || '',
+              time: item.time || '',
+              distance: item.distance || '',
+              status: item.status || '',
+              featured: item.featured || '',
+              url: item.url || item.sourceURL || '',
+              imageUrl: item.imageUrl || '',
+              description: item.description || ''
+            }))}
+            selectedSales={selectedSales.map(s => s.title || '')}
+            onSaleSelection={(saleTitle, selected) => {
+              const sale = filteredData.find((item: any) => item.title === saleTitle);
+              if (sale) {
+                const saleData: EstateSale = {
+                  title: sale.title || '',
+                  address: sale.address || '',
+                  city: sale.city || '',
+                  state: sale.state || '',
+                  zipCode: sale.zipCode || '',
+                  company: sale.company || '',
+                  date: sale.date || '',
+                  distance: sale.distance || '',
+                  status: sale.status || '',
+                  url: sale.url || sale.sourceURL || '',
+                  imageUrl: sale.imageUrl || '',
+                  description: sale.description || '',
+                  uniqueId: `sale-${saleTitle}-${sale.address}`.replace(/[^a-zA-Z0-9-]/g, '-')
+                };
+                handleSaleSelection(saleData, selected);
+              }
+            }}
+            onPlanRoute={handlePlanRoute}
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {filteredData.map((item: any, index: number) => {

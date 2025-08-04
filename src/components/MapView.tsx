@@ -4,7 +4,8 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MapPin, ExternalLink, Route, X } from 'lucide-react';
 
 interface EstateSale {
   title: string;
@@ -25,9 +26,12 @@ interface EstateSale {
 
 interface MapViewProps {
   sales: EstateSale[];
+  selectedSales?: string[];
+  onSaleSelection?: (saleTitle: string, selected: boolean) => void;
+  onPlanRoute?: () => void;
 }
 
-export const MapView = ({ sales }: MapViewProps) => {
+export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRoute }: MapViewProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapboxToken, setMapboxToken] = useState('');
@@ -115,21 +119,25 @@ export const MapView = ({ sales }: MapViewProps) => {
         const coord = coordinates[sale.title];
         if (!coord) return;
 
+        const isSelected = selectedSales.includes(sale.title);
+
         // Create marker element
         const markerEl = document.createElement('div');
         markerEl.className = 'estate-sale-marker';
         markerEl.style.cssText = `
           width: 40px;
           height: 40px;
-          background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary))/0.8);
-          border: 3px solid white;
+          background: ${isSelected 
+            ? 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary))/0.8)' 
+            : 'linear-gradient(135deg, hsl(var(--muted-foreground)), hsl(var(--muted-foreground))/0.8)'};
+          border: 3px solid ${isSelected ? 'hsl(var(--primary))' : 'white'};
           border-radius: 50%;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-          transition: transform 0.2s ease;
+          transition: all 0.2s ease;
         `;
 
         const iconEl = document.createElement('div');
@@ -153,6 +161,14 @@ export const MapView = ({ sales }: MapViewProps) => {
           hideTimeoutRef.current = setTimeout(() => {
             setSelectedSale(null);
           }, 100);
+        });
+
+        // Add click handler for selection
+        markerEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (onSaleSelection) {
+            onSaleSelection(sale.title, !isSelected);
+          }
         });
 
         // Create marker and add to map
@@ -248,6 +264,58 @@ export const MapView = ({ sales }: MapViewProps) => {
                 </a>
               )}
             </div>
+          </Card>
+        </div>
+      )}
+      
+      {/* Route planning controls */}
+      {selectedSales.length > 0 && (
+        <div className="absolute bottom-4 left-4 right-4 z-10">
+          <Card className="p-3 bg-background/95 backdrop-blur-sm border shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Route className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">
+                  {selectedSales.length} sale{selectedSales.length > 1 ? 's' : ''} selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {onPlanRoute && selectedSales.length >= 2 && (
+                  <Button
+                    onClick={onPlanRoute}
+                    size="sm"
+                    className="text-xs"
+                  >
+                    Plan Route
+                  </Button>
+                )}
+                <Button
+                  onClick={() => {
+                    selectedSales.forEach(saleTitle => {
+                      if (onSaleSelection) {
+                        onSaleSelection(saleTitle, false);
+                      }
+                    });
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+      
+      {/* Instructions */}
+      {selectedSales.length === 0 && (
+        <div className="absolute bottom-4 left-4 right-4 z-10">
+          <Card className="p-3 bg-background/95 backdrop-blur-sm border shadow-lg">
+            <p className="text-xs text-muted-foreground text-center">
+              Click on treasure boxes to select sales for route planning
+            </p>
           </Card>
         </div>
       )}
