@@ -251,14 +251,12 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
             <div className="flex flex-col">
               <span className="text-foreground">{displayAddress}</span>
               
-              {/* Show warning badges for address issues */}
-              {!displayAddress || displayAddress === 'Address TBD' ? (
+              {/* Show warning badge for address issues */}
+              {(!displayAddress || 
+                displayAddress === 'Address TBD' || 
+                !displayAddress.match(/\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court)/i)) ? (
                 <span className="text-xs text-red-600 bg-red-50 dark:bg-red-950/20 px-2 py-1 rounded mt-1 w-fit">
                   🚫 Address not available yet
-                </span>
-              ) : !displayAddress.match(/\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court)/i) ? (
-                <span className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-2 py-1 rounded mt-1 w-fit">
-                  ⚠️ City/State only - no full address
                 </span>
               ) : null}
               
