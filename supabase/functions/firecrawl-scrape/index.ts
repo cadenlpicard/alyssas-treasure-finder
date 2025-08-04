@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import FirecrawlApp from "https://esm.sh/@mendable/firecrawl-js@1.29.3"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,35 +31,44 @@ serve(async (req) => {
 
     console.log('Scraping URL with Firecrawl:', url)
     
-    const firecrawl = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY })
-
-    const scrapeResponse = await firecrawl.scrapeUrl(url, {
-      formats: ['markdown', 'html'],
-      onlyMainContent: false,
-      waitFor: 8000,
-      blockAds: true,
-      actions: [
-        {
-          type: 'wait',
-          milliseconds: 3000
-        },
-        {
-          type: 'scroll',
-          direction: 'down'
-        },
-        {
-          type: 'wait', 
-          milliseconds: 2000
-        }
-      ]
+    // Use Firecrawl API directly
+    const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: url,
+        formats: ['markdown', 'html'],
+        onlyMainContent: false,
+        waitFor: 8000,
+        blockAds: true,
+        actions: [
+          {
+            type: 'wait',
+            milliseconds: 3000
+          },
+          {
+            type: 'scroll',
+            direction: 'down'
+          },
+          {
+            type: 'wait', 
+            milliseconds: 2000
+          }
+        ]
+      })
     })
 
-    if (!scrapeResponse.success) {
-      console.error('Scrape failed:', scrapeResponse.error)
+    const responseData = await scrapeResponse.json()
+
+    if (!scrapeResponse.ok) {
+      console.error('Scrape failed:', responseData)
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: scrapeResponse.error || 'Failed to scrape website' 
+          error: responseData.error || 'Failed to scrape website' 
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -74,7 +82,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        data: scrapeResponse
+        data: responseData
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
