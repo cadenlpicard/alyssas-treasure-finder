@@ -311,19 +311,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
                 return null;
               })()}
               
-              {(displayCity || displayState) && (
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-xs text-muted-foreground">
-                    📍 {displayCity}{displayCity && displayState ? ', ' : ''}{displayState}
-                  </span>
-                  {sale.distance && (
-                    <Badge variant="outline" className="text-xs ml-2">
-                      {sale.distance}
-                    </Badge>
-                  )}
-                </div>
-              )}
-              {(!displayCity && !displayState && sale.distance) && (
+              {sale.distance && (
                 <Badge variant="outline" className="text-xs mt-1 self-start">
                   {sale.distance}
                 </Badge>
