@@ -77,7 +77,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
   const geocodeAddress = async (address: string): Promise<[number, number] | null> => {
     try {
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${mapboxToken}&country=us&proximity=-83.6129,42.9270`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${mapboxToken}&country=us`
       );
       const data = await response.json();
       
@@ -104,7 +104,6 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=${mapboxToken}&` +
         `country=us&` +
-        `proximity=-83.6129,42.9270&` +
         `autocomplete=true&` +
         `limit=5`
       );
@@ -255,13 +254,13 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     // Then try to extract address from markdown
     if (sale.markdown) {
       // Look for the actual street address in the markdown
-      const streetAddressPattern = /(\d+\s+[^\\,\n]+(?:pkwy|parkway|drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{2,}\s*\\{2,}\s*([^\\,\n]+),?\s*(MI|Michigan)\s*(\d{5})?/i;
+      const streetAddressPattern = /(\d+\s+[^\\,\n]+(?:pkwy|parkway|drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{2,}\s*\\{2,}\s*([^\\,\n]+),?\s*([A-Z]{2})\s*(\d{5})?/i;
       const streetMatch = sale.markdown.match(streetAddressPattern);
       
       if (streetMatch) {
         const streetAddress = streetMatch[1].trim();
         const city = streetMatch[2].trim();
-        const state = streetMatch[3] || 'MI';
+        const state = streetMatch[3];
         const zip = streetMatch[4] || '';
         
         let fullAddress = streetAddress + `, ${city}, ${state}`;
@@ -273,12 +272,12 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
       }
       
       // Look for city, state, zip pattern
-      const cityStatePattern = /([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})/i;
+      const cityStatePattern = /([A-Z][a-z\s]+),?\s*([A-Z]{2})\s*(\d{5})/i;
       const cityMatch = sale.markdown.match(cityStatePattern);
       
       if (cityMatch) {
         const city = cityMatch[1].trim();
-        const state = cityMatch[2] || 'MI';
+        const state = cityMatch[2];
         const zip = cityMatch[3] || '';
         
         let fullAddress = `${city}, ${state}`;
@@ -454,8 +453,8 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
-      center: [-83.6129, 42.9270], // Grand Blanc, MI
-      zoom: 11,
+      center: [-98.5795, 39.8283], // Center of US
+      zoom: 4,
     });
 
     // Add navigation controls
@@ -474,13 +473,13 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
         
         // Look for the actual street address in the markdown
         // Pattern: street address followed by city, state zip (split by \\)
-        const streetAddressPattern = /(\d+\s+[^\\,\n]+(?:pkwy|parkway|drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{2,}\s*\\{2,}\s*([^\\,\n]+),?\s*(MI|Michigan)\s*(\d{5})?/i;
+        const streetAddressPattern = /(\d+\s+[^\\,\n]+(?:pkwy|parkway|drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{2,}\s*\\{2,}\s*([^\\,\n]+),?\s*([A-Z]{2})\s*(\d{5})?/i;
         const streetMatch = sale.markdown.match(streetAddressPattern);
         
         if (streetMatch) {
           const streetAddress = streetMatch[1].trim();
           const city = streetMatch[2].trim();
-          const state = streetMatch[3] || 'MI';
+          const state = streetMatch[3];
           const zip = streetMatch[4] || '';
           
           let fullAddress = streetAddress + `, ${city}, ${state}`;
@@ -493,12 +492,12 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
         }
         
         // Look for city, state, zip pattern (for appointment-only sales without street addresses)
-        const cityStatePattern = /([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})/i;
+        const cityStatePattern = /([A-Z][a-z\s]+),?\s*([A-Z]{2})\s*(\d{5})/i;
         const cityMatch = sale.markdown.match(cityStatePattern);
         
         if (cityMatch) {
           const city = cityMatch[1].trim();
-          const state = cityMatch[2] || 'MI';
+          const state = cityMatch[2];
           const zip = cityMatch[3] || '';
           
           let fullAddress = `${city}, ${state}`;
@@ -508,33 +507,6 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
           
           console.log('Extracted city/state address:', fullAddress);
           return fullAddress;
-        }
-        
-        // Fallback: look for any street address followed by Michigan cities
-        const michiganCities = ['Grand Blanc', 'Burton', 'Davison', 'Lapeer', 'Metamora', 'West Bloomfield', 'North Branch', 'Brighton', 'Imlay City', 'Vassar', 'Flint', 'Durand'];
-        for (const city of michiganCities) {
-          // Look for street address near the city name
-          const cityPattern = new RegExp(`(\\d+\\s+[^\\n\\\\,]+(?:pkwy|parkway|drive|dr\\.?|road|rd\\.?|street|st\\.?|avenue|ave\\.?|lane|ln\\.?|court|ct\\.?|boulevard|blvd\\.?|circle|cir\\.?|way|place|pl\\.?))[^\\n]*?${city}`, 'i');
-          const match = sale.markdown.match(cityPattern);
-          if (match) {
-            const fullAddress = `${match[1].trim()}, ${city}, MI`;
-            console.log('Extracted address with MI city fallback:', fullAddress);
-            return fullAddress;
-          }
-          
-          // Also look for just the city name with state/zip
-          const cityOnlyPattern = new RegExp(`${city},?\\s*(MI|Michigan)\\s*(\\d{5})?`, 'i');
-          const cityOnlyMatch = sale.markdown.match(cityOnlyPattern);
-          if (cityOnlyMatch) {
-            const state = cityOnlyMatch[1] || 'MI';
-            const zip = cityOnlyMatch[2] || '';
-            let fullAddress = `${city}, ${state}`;
-            if (zip) {
-              fullAddress += ` ${zip}`;
-            }
-            console.log('Extracted city-only address:', fullAddress);
-            return fullAddress;
-          }
         }
         
         console.log('No address pattern matched for sale:', sale.title);

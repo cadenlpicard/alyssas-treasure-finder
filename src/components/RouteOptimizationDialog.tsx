@@ -43,13 +43,13 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
     if (!markdown) return null;
     
     // Look for street address patterns in markdown
-    const streetAddressPattern = /(\d+\s+[^\\,\n]+(?:pkwy|parkway|drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{2,}\s*\\{2,}\s*([^\\,\n]+),?\s*(MI|Michigan)\s*(\d{5})?/i;
+    const streetAddressPattern = /(\d+\s+[^\\,\n]+(?:pkwy|parkway|drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{2,}\s*\\{2,}\s*([^\\,\n]+),?\s*([A-Z]{2})\s*(\d{5})?/i;
     const streetMatch = markdown.match(streetAddressPattern);
     
     if (streetMatch) {
       const streetAddress = streetMatch[1].trim();
       const city = streetMatch[2].trim();
-      const state = streetMatch[3] || 'MI';
+      const state = streetMatch[3];
       const zip = streetMatch[4] || '';
       
       let fullAddress = streetAddress + `, ${city}, ${state}`;
@@ -61,12 +61,12 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
     }
     
     // Look for city, state, zip pattern
-    const cityStatePattern = /([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})/i;
+    const cityStatePattern = /([A-Z][a-z\s]+),?\s*([A-Z]{2})\s*(\d{5})/i;
     const cityMatch = markdown.match(cityStatePattern);
     
     if (cityMatch) {
       const city = cityMatch[1].trim();
-      const state = cityMatch[2] || 'MI';
+      const state = cityMatch[2];
       const zip = cityMatch[3] || '';
       
       let fullAddress = `${city}, ${state}`;
@@ -97,7 +97,7 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
       const saleAddresses = selectedSales.map(sale => {
         const address = sale.address || 
           (sale.markdown ? extractAddressFromMarkdown(sale.markdown) : null) ||
-          'Grand Blanc, MI';
+          'Address TBD';
         return address;
       });
 
@@ -229,7 +229,7 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
                   const saleIndex = isStarting ? null : selectedSales.findIndex(sale => {
                     const saleAddress = sale.address || 
                       (sale.markdown ? extractAddressFromMarkdown(sale.markdown) : null) ||
-                      'Grand Blanc, MI';
+                      'Address TBD';
                     return saleAddress === address;
                   });
                   

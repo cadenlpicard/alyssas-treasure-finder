@@ -22,20 +22,19 @@ const Index = () => {
           </div>
           
           <h1 className="text-6xl md:text-8xl font-bold mb-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-            <span className="text-foreground">Michigan</span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary/80 to-primary/60"> Grand</span>
-            <span className="text-foreground"> Finds</span>
+            <span className="text-foreground">Estate Sale</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary/80 to-primary/60"> Finder</span>
           </h1>
           
           <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '0.4s' }}>
-            Discover hidden treasures and vintage gems at estate sales across Michigan with intelligent route planning
+            Discover hidden treasures and vintage gems at estate sales with intelligent route planning
           </p>
           
           {/* Feature Pills */}
           <div className="flex flex-wrap justify-center gap-4 mb-8 animate-fade-in" style={{ animationDelay: '0.6s' }}>
             <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border border-border/50 rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg">
               <MapPin className="w-5 h-5 text-primary transition-transform group-hover:scale-110" />
-              <span className="text-sm font-medium">Michigan Focused</span>
+              <span className="text-sm font-medium">Location Search</span>
             </div>
             <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border border-border/50 rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg">
               <Clock className="w-5 h-5 text-primary transition-transform group-hover:scale-110" />
@@ -69,7 +68,7 @@ const Index = () => {
       <footer className="relative z-10 py-12 border-t border-border/50 bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 text-center">
           <p className="text-muted-foreground text-lg">
-            Start your treasure hunting adventure across Michigan's finest estate sales
+            Start your treasure hunting adventure at estate sales nationwide
           </p>
         </div>
       </footer>
