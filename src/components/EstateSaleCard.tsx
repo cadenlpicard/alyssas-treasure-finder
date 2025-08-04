@@ -314,9 +314,11 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
         </p>
         
         <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Tag className="w-3 h-3" />
-            <span>Estate Sale</span>
+          <div className="flex items-center gap-1">
+            <Badge variant="secondary" className="text-xs">
+              <Tag className="w-3 h-3 mr-1" />
+              Estate Sale
+            </Badge>
           </div>
           
           {sale.url && (
