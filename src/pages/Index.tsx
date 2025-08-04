@@ -1,8 +1,19 @@
+import { useState } from "react";
 import { EstateSalesScraper } from "@/components/EstateSalesScraper";
+import { PasscodeWindow } from "@/components/PasscodeWindow";
 import heroImage from "@/assets/estate-sales-hero.jpg";
 import { Gem, MapPin, Clock } from "lucide-react";
 
 const Index = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const handlePasscodeCorrect = () => {
+    setIsAuthenticated(true);
+  };
+
+  if (!isAuthenticated) {
+    return <PasscodeWindow onPasscodeCorrect={handlePasscodeCorrect} />;
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-muted/10">
       {/* Hero Section */}
