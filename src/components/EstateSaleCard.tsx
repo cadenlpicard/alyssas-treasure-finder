@@ -14,6 +14,10 @@ interface EstateSale {
   company?: string;
   distance?: string;
   markdown?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  streetAddress?: string;
 }
 
 interface EstateSaleCardProps {
@@ -24,8 +28,8 @@ interface EstateSaleCardProps {
 
 export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSaleCardProps) => {
   // Extract data from markdown if other fields are not available
-  const extractFromMarkdown = (markdown: string): { title: string; date: string; address: string; company: string; description: string } => {
-    if (!markdown) return { title: 'Estate Sale', date: 'Date TBD', address: 'Address TBD', company: '', description: 'No details available' };
+  const extractFromMarkdown = (markdown: string): { title: string; date: string; address: string; company: string; description: string; city: string; state: string } => {
+    if (!markdown) return { title: 'Estate Sale', date: 'Date TBD', address: 'Address TBD', company: '', description: 'No details available', city: '', state: '' };
     
     // Clean the markdown by removing navigation and technical elements
     const cleanText = markdown
@@ -55,6 +59,8 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
     let address = '';
     let company = '';
     let description = '';
+    let city = '';
+    let state = '';
     
     // Extract meaningful information
     for (let i = 0; i < lines.length; i++) {
@@ -92,7 +98,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
         continue;
       }
       
-      // Address - look for street addresses with numbers
+      // Address - look for street addresses with numbers and extract city/state
       if (!address && (
         line.match(/\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court)/i) ||
         (line.includes('Grand Blanc') && line.includes('MI'))
@@ -111,6 +117,23 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
         }
         
         address = cleanAddress;
+        
+        // Extract city and state from address
+        const cityStateMatch = cleanAddress.match(/([^,]+),\s*(MI|Michigan)/i);
+        if (cityStateMatch) {
+          city = cityStateMatch[1].trim();
+          state = cityStateMatch[2];
+        }
+        continue;
+      }
+      
+      // Extract city and state separately if not found in address
+      if (!city && line.match(/([A-Z][a-z\s]+),?\s*(MI|Michigan)/i)) {
+        const cityStateMatch = line.match(/([A-Z][a-z\s]+),?\s*(MI|Michigan)/i);
+        if (cityStateMatch) {
+          city = cityStateMatch[1].trim();
+          state = cityStateMatch[2];
+        }
         continue;
       }
       
@@ -158,7 +181,9 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
       date: date.trim() || 'Date TBD', 
       address: address.trim() || 'Grand Blanc, MI', 
       company: company.trim(),
-      description: description.trim()
+      description: description.trim(),
+      city: city.trim() || 'Grand Blanc',
+      state: state.trim() || 'MI'
     };
   };
 
@@ -167,7 +192,9 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
     date: '', 
     address: '', 
     company: '',
-    description: ''
+    description: '',
+    city: '',
+    state: ''
   };
   
   const displayTitle = sale.title || extracted.title;
@@ -175,6 +202,8 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
   const displayAddress = sale.address || extracted.address;
   const displayCompany = sale.company || extracted.company;
   const displayDescription = sale.description || extracted.description;
+  const displayCity = sale.city || extracted.city;
+  const displayState = sale.state || extracted.state;
 
   return (
     <Card className={`group hover:shadow-lg transition-all duration-300 border-vintage-gold/20 bg-card/80 backdrop-blur ${
@@ -218,12 +247,26 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
           
           <div className="flex items-center gap-2 text-sm">
             <MapPin className="w-4 h-4 text-treasure-green flex-shrink-0" />
-            <span className="text-foreground">{displayAddress}</span>
-            {sale.distance && (
-              <Badge variant="outline" className="text-xs ml-auto">
-                {sale.distance}
-              </Badge>
-            )}
+            <div className="flex flex-col">
+              <span className="text-foreground">{displayAddress}</span>
+              {(displayCity || displayState) && (
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-xs text-muted-foreground">
+                    📍 {displayCity}{displayCity && displayState ? ', ' : ''}{displayState}
+                  </span>
+                  {sale.distance && (
+                    <Badge variant="outline" className="text-xs ml-2">
+                      {sale.distance}
+                    </Badge>
+                  )}
+                </div>
+              )}
+              {(!displayCity && !displayState && sale.distance) && (
+                <Badge variant="outline" className="text-xs mt-1 self-start">
+                  {sale.distance}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
         

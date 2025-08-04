@@ -18,6 +18,10 @@ interface EstateSale {
   company?: string;
   distance?: string;
   markdown?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  streetAddress?: string;
 }
 
 interface RouteOptimizationDialogProps {

@@ -23,6 +23,10 @@ interface EstateSale {
   company?: string;
   distance?: string;
   markdown?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  streetAddress?: string;
 }
 
 interface CrawlResult {
@@ -318,7 +322,11 @@ export const EstateSalesScraper = () => {
                         status: item.status,
                         company: item.company,
                         distance: item.distance,
-                        markdown: item.markdown
+                        markdown: item.markdown,
+                        city: item.city,
+                        state: item.state,
+                        zipCode: item.zipCode,
+                        streetAddress: item.streetAddress
                       };
                       
                       return (

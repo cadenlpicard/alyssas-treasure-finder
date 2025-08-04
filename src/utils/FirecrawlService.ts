@@ -110,18 +110,35 @@ export class FirecrawlService {
         sale.lastModified = modifiedMatch[1].trim();
       }
       
-      // Extract address - look for street address patterns
+      // Extract address - look for street address patterns and extract city/state
       const addressLines = block.split('\\\\');
       let addressFound = false;
       for (const line of addressLines) {
         if (line.includes('MI ') && /\d{5}/.test(line)) {
           sale.address = line.trim();
+          // Extract city and state from full address
+          const cityStateMatch = line.match(/([^,]+),\s*(MI|Michigan)\s*(\d{5})?/i);
+          if (cityStateMatch) {
+            sale.city = cityStateMatch[1].trim();
+            sale.state = cityStateMatch[2];
+            sale.zipCode = cityStateMatch[3] || '';
+          }
           addressFound = true;
           break;
         }
         // Also check for just street addresses without state
         if (!addressFound && /^\d+\s+[a-zA-Z\s]+(?:rd|drive|dr|street|st|ave|avenue|lane|ln|ct|court|way|blvd|boulevard)/i.test(line.trim())) {
           sale.streetAddress = line.trim();
+        }
+      }
+      
+      // If no full address found, try to extract city from other patterns
+      if (!sale.city) {
+        const cityPattern = /([A-Z][a-z\s]+),?\s*(MI|Michigan)/i;
+        const cityMatch = block.match(cityPattern);
+        if (cityMatch) {
+          sale.city = cityMatch[1].trim();
+          sale.state = cityMatch[2];
         }
       }
       
@@ -174,18 +191,50 @@ export class FirecrawlService {
       if (sale.status) descParts.push(sale.status);
       sale.description = descParts.join(' • ');
       
-      // Only add sales that have at least a title and are today or later
-      if (sale.title && sale.title.length > 0 && this.isTodayOrLater(sale.date)) {
+      // Only add sales that have at least a title and are within 3 days
+      if (sale.title && sale.title.length > 0 && this.isWithinThreeDays(sale.date)) {
         sales.push(sale);
         console.log(`Parsed sale: "${sale.title}" at ${sale.address || sale.streetAddress}`);
       }
     }
     
-    console.log(`Successfully parsed ${sales.length} estate sales (filtered for today or later)`);
+    console.log(`Successfully parsed ${sales.length} estate sales (filtered for within 3 days)`);
     return sales;
   }
 
-  // Helper method to check if a sale date is today or later
+  // Helper method to check if a sale date is within 3 days from today
+  static isWithinThreeDays(dateString: string): boolean {
+    if (!dateString || dateString === 'Date TBD') {
+      return true; // Include sales without specific dates
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const threeDaysFromNow = new Date(today);
+    threeDaysFromNow.setDate(today.getDate() + 3);
+
+    try {
+      // Parse estate sale dates that can be in various formats like:
+      // "Dec 14, 2024"
+      // "Dec 14, Dec 15"
+      // "Dec 14"
+      
+      const currentYear = today.getFullYear();
+      const dateToCheck = this.parseSaleDate(dateString, currentYear);
+      
+      if (!dateToCheck) {
+        return true; // If we can't parse it, include it
+      }
+
+      return dateToCheck >= today && dateToCheck <= threeDaysFromNow;
+    } catch (error) {
+      console.warn('Error parsing date:', dateString, error);
+      return true; // If error parsing, include the sale
+    }
+  }
+
+  // Helper method to check if a sale date is today or later (keeping for compatibility)
   static isTodayOrLater(dateString: string): boolean {
     if (!dateString || dateString === 'Date TBD') {
       return true; // Include sales without specific dates
