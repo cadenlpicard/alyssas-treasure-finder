@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronsUpDown, MapPin } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { MapPin, Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from '@/integrations/supabase/client';
 
 interface LocationData {
   city: string;
   state: string;
   zipcode: string;
+  full_address?: string;
+}
+
+interface LocationSuggestion {
+  place_name: string;
+  text: string;
+  center: [number, number];
+  context: Array<{ id: string; text: string }>;
 }
 
 interface LocationInputProps {
@@ -18,52 +25,135 @@ interface LocationInputProps {
   initialLocation?: LocationData;
 }
 
-// Sample locations - in a real app, this would come from an API
-const sampleLocations = [
-  { city: "New York", state: "NY", zipcode: "10001" },
-  { city: "New York", state: "NY", zipcode: "10002" },
-  { city: "Los Angeles", state: "CA", zipcode: "90001" },
-  { city: "Los Angeles", state: "CA", zipcode: "90002" },
-  { city: "Chicago", state: "IL", zipcode: "60601" },
-  { city: "Chicago", state: "IL", zipcode: "60602" },
-  { city: "Houston", state: "TX", zipcode: "77001" },
-  { city: "Houston", state: "TX", zipcode: "77002" },
-  { city: "Phoenix", state: "AZ", zipcode: "85001" },
-  { city: "Phoenix", state: "AZ", zipcode: "85002" },
-  { city: "Philadelphia", state: "PA", zipcode: "19101" },
-  { city: "Philadelphia", state: "PA", zipcode: "19102" },
-  { city: "San Antonio", state: "TX", zipcode: "78201" },
-  { city: "San Antonio", state: "TX", zipcode: "78202" },
-  { city: "San Diego", state: "CA", zipcode: "92101" },
-  { city: "San Diego", state: "CA", zipcode: "92102" },
-  { city: "Dallas", state: "TX", zipcode: "75201" },
-  { city: "Dallas", state: "TX", zipcode: "75202" },
-  { city: "Detroit", state: "MI", zipcode: "48201" },
-  { city: "Detroit", state: "MI", zipcode: "48202" },
-  { city: "Detroit", state: "MI", zipcode: "48226" },
-];
-
 export const LocationInput = ({ onLocationChange, initialLocation }: LocationInputProps) => {
+  const [searchValue, setSearchValue] = useState(initialLocation ? `${initialLocation.city}, ${initialLocation.state} ${initialLocation.zipcode}` : "");
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [mapboxToken, setMapboxToken] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(initialLocation || null);
-  const [open, setOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
+  const { toast } = useToast();
 
-  const filteredLocations = sampleLocations.filter(location => {
-    if (!searchValue.trim()) return true;
+  // Get Mapbox token from Supabase edge function
+  const getMapboxToken = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+      
+      if (error) {
+        console.error('Error getting Mapbox token:', error);
+        return;
+      }
+      
+      if (data?.token) {
+        setMapboxToken(data.token);
+      }
+    } catch (error) {
+      console.error('Error fetching Mapbox token:', error);
+    }
+  };
+
+  useEffect(() => {
+    getMapboxToken();
+  }, []);
+
+  // Fetch location suggestions from Mapbox
+  const fetchSuggestions = async (query: string) => {
+    if (!query.trim() || query.length < 3 || !mapboxToken) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
+        `access_token=${mapboxToken}&` +
+        `country=us&` +
+        `types=place,postcode,region&` +
+        `autocomplete=true&` +
+        `limit=8`
+      );
+      
+      const data = await response.json();
+      
+      if (data.features && data.features.length > 0) {
+        const locationSuggestions: LocationSuggestion[] = data.features.map((feature: any) => ({
+          place_name: feature.place_name,
+          text: feature.text,
+          center: feature.center,
+          context: feature.context || []
+        }));
+        setSuggestions(locationSuggestions);
+        setShowSuggestions(true);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch (error) {
+      console.error('Error fetching location suggestions:', error);
+      setSuggestions([]);
+      setShowSuggestions(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Parse location data from Mapbox suggestion
+  const parseLocationFromSuggestion = (suggestion: LocationSuggestion): LocationData => {
+    const { place_name, context } = suggestion;
     
-    const searchTerm = searchValue.toLowerCase().trim();
-    const cityMatch = location.city.toLowerCase().includes(searchTerm);
-    const stateMatch = location.state.toLowerCase().includes(searchTerm);
-    const zipcodeMatch = location.zipcode.includes(searchTerm);
+    // Extract state and zipcode from context
+    let state = '';
+    let zipcode = '';
+    let city = suggestion.text;
     
-    // Handle "city, state" format like "detroit, mi"
-    const cityStateFormat = `${location.city.toLowerCase()}, ${location.state.toLowerCase()}`;
-    const cityStateMatch = cityStateFormat.includes(searchTerm);
+    if (context) {
+      context.forEach(item => {
+        if (item.id.startsWith('region.')) {
+          // Extract state abbreviation (e.g., "Michigan" -> "MI")
+          const stateMatch = item.text.match(/\b([A-Z]{2})\b/);
+          if (stateMatch) {
+            state = stateMatch[1];
+          } else {
+            // Handle full state names - simplified mapping
+            const stateMap: { [key: string]: string } = {
+              'Michigan': 'MI', 'California': 'CA', 'Texas': 'TX', 'New York': 'NY',
+              'Florida': 'FL', 'Illinois': 'IL', 'Pennsylvania': 'PA', 'Ohio': 'OH',
+              'Georgia': 'GA', 'North Carolina': 'NC', 'New Jersey': 'NJ', 'Virginia': 'VA',
+              'Washington': 'WA', 'Arizona': 'AZ', 'Massachusetts': 'MA', 'Tennessee': 'TN',
+              'Indiana': 'IN', 'Missouri': 'MO', 'Maryland': 'MD', 'Wisconsin': 'WI'
+            };
+            state = stateMap[item.text] || item.text.substring(0, 2).toUpperCase();
+          }
+        }
+        if (item.id.startsWith('postcode.')) {
+          zipcode = item.text;
+        }
+      });
+    }
     
-    return cityMatch || stateMatch || zipcodeMatch || cityStateMatch;
-  });
+    // If no zipcode found, try to extract from place_name
+    if (!zipcode) {
+      const zipcodeMatch = place_name.match(/\b(\d{5})\b/);
+      if (zipcodeMatch) {
+        zipcode = zipcodeMatch[1];
+      }
+    }
+    
+    return {
+      city,
+      state,
+      zipcode,
+      full_address: place_name
+    };
+  };
 
   const generateUrl = (location: LocationData) => {
+    if (!location.zipcode) {
+      // Fallback to city/state if no zipcode
+      return `https://www.estatesales.net/${location.state}/${location.city.replace(/\s+/g, '-')}`;
+    }
     return `https://www.estatesales.net/${location.state}/${location.city.replace(/\s+/g, '-')}/${location.zipcode}`;
   };
 
@@ -74,9 +164,39 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
     }
   }, [selectedLocation, onLocationChange]);
 
-  const handleLocationSelect = (location: LocationData) => {
+  const handleLocationSelect = (suggestion: LocationSuggestion) => {
+    const location = parseLocationFromSuggestion(suggestion);
     setSelectedLocation(location);
-    setOpen(false);
+    setSearchValue(suggestion.place_name);
+    setShowSuggestions(false);
+    setSuggestions([]);
+  };
+
+  const handleInputChange = (value: string) => {
+    setSearchValue(value);
+    
+    // Clear selected location if input is changed
+    if (selectedLocation && value !== selectedLocation.full_address) {
+      setSelectedLocation(null);
+    }
+    
+    // Debounce the search
+    setTimeout(() => {
+      fetchSuggestions(value);
+    }, 300);
+  };
+
+  const handleInputFocus = () => {
+    if (suggestions.length > 0) {
+      setShowSuggestions(true);
+    }
+  };
+
+  const handleInputBlur = () => {
+    // Delay hiding suggestions to allow for clicks
+    setTimeout(() => {
+      setShowSuggestions(false);
+    }, 200);
   };
 
   return (
@@ -86,64 +206,71 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
           <MapPin className="w-4 h-4 text-primary" />
           Select Location & Zipcode
         </Label>
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={open}
-              className="w-full h-12 justify-between border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm hover:border-primary/50 transition-all duration-300"
-            >
-              {selectedLocation
-                ? `${selectedLocation.city}, ${selectedLocation.state} ${selectedLocation.zipcode}`
-                : "Search city or zipcode..."}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-full p-0 bg-background/95 backdrop-blur-sm border border-border/50">
-            <Command>
-              <CommandInput 
-                placeholder="Search city or zipcode..." 
-                value={searchValue}
-                onValueChange={setSearchValue}
-                className="border-0"
-              />
-              <CommandList>
-                <CommandEmpty>No locations found.</CommandEmpty>
-                <CommandGroup>
-                  {filteredLocations.map((location) => (
-                    <CommandItem
-                      key={`${location.city}-${location.zipcode}`}
-                      value={`${location.city} ${location.zipcode}`}
-                      onSelect={() => handleLocationSelect(location)}
-                      className="cursor-pointer hover:bg-accent/50"
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedLocation?.zipcode === location.zipcode
-                            ? "opacity-100"
-                            : "opacity-0"
-                        )}
-                      />
-                      <div className="flex flex-col">
-                        <span className="font-medium">{location.city}, {location.state}</span>
-                        <span className="text-sm text-muted-foreground">{location.zipcode}</span>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        <div className="relative">
+          <Input
+            value={searchValue}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            placeholder="Search any city or zipcode..."
+            className="h-12 border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
+            disabled={!mapboxToken}
+          />
+          {isLoading && (
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          
+          {/* Suggestions Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute z-50 w-full mt-1 bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {suggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleLocationSelect(suggestion)}
+                  className="w-full px-4 py-3 text-left hover:bg-accent/50 flex items-center gap-3 border-b border-border/30 last:border-b-0 transition-colors"
+                >
+                  <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-medium text-foreground truncate">
+                      {suggestion.text}
+                    </span>
+                    <span className="text-sm text-muted-foreground truncate">
+                      {suggestion.place_name}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+          
+          {/* No results message */}
+          {showSuggestions && suggestions.length === 0 && searchValue.length > 2 && !isLoading && (
+            <div className="absolute z-50 w-full mt-1 bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg p-4">
+              <p className="text-sm text-muted-foreground">No locations found. Try a different search term.</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {selectedLocation && (
         <div className="p-3 bg-accent/30 rounded-lg border border-border/30">
-          <p className="text-sm text-muted-foreground mb-1">Generated URL:</p>
+          <p className="text-sm text-muted-foreground mb-1">Selected Location:</p>
+          <p className="text-sm font-medium text-foreground">
+            {selectedLocation.city}, {selectedLocation.state} {selectedLocation.zipcode}
+          </p>
+          <p className="text-sm text-muted-foreground mb-2">Generated URL:</p>
           <p className="text-sm font-mono text-foreground break-all">
             {generateUrl(selectedLocation)}
+          </p>
+        </div>
+      )}
+      
+      {!mapboxToken && (
+        <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            Loading location services...
           </p>
         </div>
       )}
