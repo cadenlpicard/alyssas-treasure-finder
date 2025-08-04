@@ -564,25 +564,6 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
         if (coords) {
           coordinates.push(coords);
           validSales.push(sale);
-          
-          // Create custom marker
-          const el = document.createElement('div');
-          el.className = 'w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm border-2 border-background shadow-lg cursor-pointer';
-          el.textContent = coordinates.length.toString();
-          
-          const marker = new mapboxgl.Marker(el)
-            .setLngLat(coords)
-            .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
-              `<div class="p-3 max-w-xs">
-                <h3 class="font-semibold text-sm mb-1">${sale.title || 'Estate Sale'}</h3>
-                <p class="text-xs text-gray-600 mb-1">${extractedAddress}</p>
-                <p class="text-xs text-gray-500 mb-1">${sale.date || 'Date TBD'}</p>
-                ${sale.company ? `<p class="text-xs text-blue-600">${sale.company}</p>` : ''}
-              </div>`
-            ))
-            .addTo(map.current!);
-          
-          markers.push(marker);
         } else {
           console.warn('Failed to geocode address:', extractedAddress);
         }
@@ -616,6 +597,58 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
         
         if (routeData && map.current) {
           console.log('Route calculated successfully:', routeData);
+          
+          // Add markers in the correct route order
+          const addOptimizedMarkers = () => {
+            if (!map.current) return;
+            
+            // Clear existing markers except starting point
+            markers.forEach(marker => marker.remove());
+            markers.length = 0;
+            
+            // Re-add starting point marker if it exists
+            if (startingCoords) {
+              const startEl = document.createElement('div');
+              startEl.className = 'w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-background shadow-lg cursor-pointer';
+              startEl.innerHTML = '🏠';
+              
+              const startMarker = new mapboxgl.Marker(startEl)
+                .setLngLat(startingCoords)
+                .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
+                  `<div class="p-3 max-w-xs">
+                    <h3 class="font-semibold text-sm mb-1">Starting Point</h3>
+                    <p class="text-xs text-gray-600">${startingAddress}</p>
+                  </div>`
+                ))
+                .addTo(map.current!);
+              
+              markers.push(startMarker);
+            }
+            
+            // Add markers for each direction in route order
+            let saleNumber = 1;
+            routeDirections.forEach((direction, index) => {
+              if (direction.title !== 'Starting Point') {
+                // Create custom marker
+                const el = document.createElement('div');
+                el.className = 'w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm border-2 border-background shadow-lg cursor-pointer';
+                el.textContent = saleNumber.toString();
+                
+                const marker = new mapboxgl.Marker(el)
+                  .setLngLat(direction.coords)
+                  .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
+                    `<div class="p-3 max-w-xs">
+                      <h3 class="font-semibold text-sm mb-1">${direction.title}</h3>
+                      <p class="text-xs text-gray-600 mb-1">${direction.address}</p>
+                    </div>`
+                  ))
+                  .addTo(map.current!);
+                
+                markers.push(marker);
+                saleNumber++;
+              }
+            });
+          };
           
           const addRouteToMap = () => {
             if (!map.current || !routeData.geometry) return;
@@ -651,6 +684,9 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
                 'line-opacity': 0.8
               }
             });
+            
+            // Add optimized markers after route is added
+            addOptimizedMarkers();
           };
           
           // Add route to map when style is loaded
