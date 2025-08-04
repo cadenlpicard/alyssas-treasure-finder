@@ -93,6 +93,16 @@ export const EstateSalesScraper = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!url || url.trim() === '') {
+      toast({
+        title: "Location Required",
+        description: "Please select a location first",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     setProgress(0);
     setCrawlResult(null);
