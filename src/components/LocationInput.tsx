@@ -66,11 +66,12 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
 
     setIsLoading(true);
     try {
+      // First search for places and postcodes
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=${mapboxToken}&` +
         `country=us&` +
-        `types=place,postcode,region&` +
+        `types=place,postcode&` +
         `autocomplete=true&` +
         `limit=8`
       );
@@ -84,7 +85,18 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
           center: feature.center,
           context: feature.context || []
         }));
-        setSuggestions(locationSuggestions);
+        
+        // Sort suggestions to prioritize those with zipcodes
+        const sortedSuggestions = locationSuggestions.sort((a, b) => {
+          const aHasZipcode = a.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(a.place_name);
+          const bHasZipcode = b.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(b.place_name);
+          
+          if (aHasZipcode && !bHasZipcode) return -1;
+          if (!aHasZipcode && bHasZipcode) return 1;
+          return 0;
+        });
+        
+        setSuggestions(sortedSuggestions);
         setShowSuggestions(true);
       } else {
         setSuggestions([]);
@@ -238,23 +250,40 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
           {/* Suggestions Dropdown */}
           {showSuggestions && suggestions.length > 0 && (
             <div className="absolute z-50 w-full mt-1 bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {suggestions.map((suggestion, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleLocationSelect(suggestion)}
-                  className="w-full px-4 py-3 text-left hover:bg-accent/50 flex items-center gap-3 border-b border-border/30 last:border-b-0 transition-colors"
-                >
-                  <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-medium text-foreground truncate">
-                      {suggestion.text}
-                    </span>
-                    <span className="text-sm text-muted-foreground truncate">
-                      {suggestion.place_name}
-                    </span>
-                  </div>
-                </button>
-              ))}
+              {suggestions.map((suggestion, index) => {
+                const hasZipcode = suggestion.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(suggestion.place_name);
+                const zipcode = suggestion.context?.find(item => item.id.startsWith('postcode.'))?.text || suggestion.place_name.match(/\b(\d{5})\b/)?.[1];
+                
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleLocationSelect(suggestion)}
+                    className={`w-full px-4 py-3 text-left hover:bg-accent/50 flex items-center gap-3 border-b border-border/30 last:border-b-0 transition-colors ${hasZipcode ? 'bg-green-50 dark:bg-green-950/20' : 'opacity-60'}`}
+                  >
+                    <MapPin className={`w-4 h-4 flex-shrink-0 ${hasZipcode ? 'text-green-600' : 'text-muted-foreground'}`} />
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-foreground truncate">
+                          {suggestion.text}
+                        </span>
+                        {hasZipcode && zipcode && (
+                          <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded">
+                            {zipcode}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground truncate">
+                        {suggestion.place_name}
+                      </span>
+                      {!hasZipcode && (
+                        <span className="text-xs text-red-600 dark:text-red-400">
+                          No zipcode available
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
           
