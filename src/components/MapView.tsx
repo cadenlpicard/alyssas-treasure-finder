@@ -34,10 +34,12 @@ interface MapViewProps {
 export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRoute }: MapViewProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [mapboxToken, setMapboxToken] = useState('');
   const [selectedSale, setSelectedSale] = useState<EstateSale | null>(null);
   const [coordinates, setCoordinates] = useState<{ [key: string]: [number, number] }>({});
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [mapInitialized, setMapInitialized] = useState(false);
 
   // Get Mapbox token
   useEffect(() => {
@@ -93,9 +95,9 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
     geocodeAddresses();
   }, [mapboxToken, sales]);
 
-  // Initialize map
+  // Initialize map (only once)
   useEffect(() => {
-    if (!mapContainer.current || !mapboxToken || !Object.keys(coordinates).length) return;
+    if (!mapContainer.current || !mapboxToken || !Object.keys(coordinates).length || mapInitialized) return;
 
     mapboxgl.accessToken = mapboxToken;
     
@@ -112,78 +114,95 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-    // Add markers after map loads
+    
     map.current.on('load', () => {
-      sales.forEach((sale) => {
-        const coord = coordinates[sale.title];
-        if (!coord) return;
-
-        const isSelected = selectedSales.includes(sale.title);
-
-        // Create marker element
-        const markerEl = document.createElement('div');
-        markerEl.className = 'estate-sale-marker';
-        markerEl.style.cssText = `
-          width: 40px;
-          height: 40px;
-          background: ${isSelected 
-            ? 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary))/0.8)' 
-            : 'linear-gradient(135deg, hsl(var(--muted-foreground)), hsl(var(--muted-foreground))/0.8)'};
-          border: 3px solid ${isSelected ? 'hsl(var(--primary))' : 'white'};
-          border-radius: 50%;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-          transition: all 0.2s ease;
-        `;
-
-        const iconEl = document.createElement('div');
-        iconEl.innerHTML = '💰';
-        iconEl.style.fontSize = '16px';
-        markerEl.appendChild(iconEl);
-
-        // Add hover effect and show details on hover with improved flickering prevention
-        markerEl.addEventListener('mouseenter', () => {
-          if (hideTimeoutRef.current) {
-            clearTimeout(hideTimeoutRef.current);
-            hideTimeoutRef.current = null;
-          }
-          markerEl.style.filter = 'brightness(1.1)';
-          markerEl.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
-          setSelectedSale(sale);
-        });
-        
-        // Use a longer delay and only hide if mouse is truly away from both marker and popup
-        markerEl.addEventListener('mouseleave', () => {
-          markerEl.style.filter = 'brightness(1)';
-          markerEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-          hideTimeoutRef.current = setTimeout(() => {
-            setSelectedSale(null);
-          }, 300);
-        });
-
-        // Add click handler for selection
-        markerEl.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (onSaleSelection) {
-            onSaleSelection(sale.title, !isSelected);
-          }
-        });
-
-        // Create marker and add to map
-        const marker = new mapboxgl.Marker(markerEl)
-          .setLngLat(coord)
-          .addTo(map.current!);
-      });
+      setMapInitialized(true);
     });
 
     return () => {
-      map.current?.remove();
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+        setMapInitialized(false);
+      }
     };
-  }, [mapboxToken, coordinates, sales]);
+  }, [mapboxToken, coordinates, mapInitialized]);
+
+  // Update markers when sales or selections change (without reinitializing map)
+  useEffect(() => {
+    if (!map.current || !mapInitialized || !Object.keys(coordinates).length) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    // Add new markers
+    sales.forEach((sale) => {
+      const coord = coordinates[sale.title];
+      if (!coord) return;
+
+      const isSelected = selectedSales.includes(sale.title);
+
+      // Create marker element
+      const markerEl = document.createElement('div');
+      markerEl.className = 'estate-sale-marker';
+      markerEl.style.cssText = `
+        width: 40px;
+        height: 40px;
+        background: ${isSelected 
+          ? 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary))/0.8)' 
+          : 'linear-gradient(135deg, hsl(var(--muted-foreground)), hsl(var(--muted-foreground))/0.8)'};
+        border: 3px solid ${isSelected ? 'hsl(var(--primary))' : 'white'};
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        transition: all 0.2s ease;
+      `;
+
+      const iconEl = document.createElement('div');
+      iconEl.innerHTML = '💰';
+      iconEl.style.fontSize = '16px';
+      markerEl.appendChild(iconEl);
+
+      // Add hover effect and show details on hover with improved flickering prevention
+      markerEl.addEventListener('mouseenter', () => {
+        if (hideTimeoutRef.current) {
+          clearTimeout(hideTimeoutRef.current);
+          hideTimeoutRef.current = null;
+        }
+        markerEl.style.filter = 'brightness(1.1)';
+        markerEl.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
+        setSelectedSale(sale);
+      });
+      
+      // Use a longer delay and only hide if mouse is truly away from both marker and popup
+      markerEl.addEventListener('mouseleave', () => {
+        markerEl.style.filter = 'brightness(1)';
+        markerEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+        hideTimeoutRef.current = setTimeout(() => {
+          setSelectedSale(null);
+        }, 300);
+      });
+
+      // Add click handler for selection
+      markerEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (onSaleSelection) {
+          onSaleSelection(sale.title, !isSelected);
+        }
+      });
+
+      // Create marker and add to map
+      const marker = new mapboxgl.Marker(markerEl)
+        .setLngLat(coord)
+        .addTo(map.current!);
+      
+      markersRef.current.push(marker);
+    });
+  }, [sales, selectedSales, coordinates, mapInitialized, onSaleSelection]);
 
   if (!mapboxToken) {
     return (
