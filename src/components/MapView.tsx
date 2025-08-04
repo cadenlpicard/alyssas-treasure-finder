@@ -126,7 +126,7 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
         setMapInitialized(false);
       }
     };
-  }, [mapboxToken, coordinates, mapInitialized]);
+  }, [mapboxToken, Object.keys(coordinates).length, mapInitialized]);
 
   // Update markers when sales or selections change (without reinitializing map)
   useEffect(() => {
