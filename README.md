@@ -2,8 +2,6 @@
 
 A sophisticated estate sales discovery and route optimization platform that helps treasure hunters find the best deals and plan efficient routes to multiple estate sales.
 
-![Estate Sales Finder](https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=400&fit=crop)
-
 ## ✨ Features
 
 ### 🔍 Smart Estate Sales Discovery
