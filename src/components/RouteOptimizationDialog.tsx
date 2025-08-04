@@ -145,6 +145,21 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
     }
   };
 
+  const handleLocateMe = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          // Use approximate address format for route optimization
+          setStartingAddress(`${latitude}, ${longitude}`);
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+        }
+      );
+    }
+  };
+
   const handleReset = () => {
     setOptimizedRoute([]);
     setGoogleMapsUrl('');
@@ -177,7 +192,7 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
               <Navigation className="w-4 h-4" />
               Starting Address
             </Label>
-            <div className="relative">
+            <div className="flex gap-2">
               <Input
                 id="startingAddress"
                 value={startingAddress}
@@ -186,7 +201,18 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
                 disabled={isOptimizing}
                 autoComplete="street-address"
                 list="address-suggestions"
+                className="flex-1"
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleLocateMe}
+                disabled={isOptimizing}
+                title="Use my current location"
+              >
+                <MapPin className="w-4 h-4" />
+              </Button>
             </div>
           </div>
 

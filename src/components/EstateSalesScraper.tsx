@@ -12,6 +12,7 @@ import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Loader2, Sparkl
 import { EstateSaleCard } from './EstateSaleCard';
 import { RouteOptimizationDialog } from './RouteOptimizationDialog';
 import { LocationInput } from './LocationInput';
+import { AuctionTypeFilter } from './AuctionTypeFilter';
 
 interface EstateSale {
   title?: string;
@@ -49,6 +50,9 @@ export const EstateSalesScraper = () => {
   const [crawlResult, setCrawlResult] = useState<CrawlResult | null>(null);
   const [selectedSales, setSelectedSales] = useState<EstateSale[]>([]);
   const [showRouteDialog, setShowRouteDialog] = useState(false);
+  const [selectedAuctionTypes, setSelectedAuctionTypes] = useState<string[]>([
+    'estate-sales', 'moving-sales', 'auctions', 'auction-house'
+  ]);
 
   // Helper function to parse distance from text
   const parseDistance = (distanceText?: string): number => {
@@ -165,7 +169,7 @@ export const EstateSalesScraper = () => {
         {/* Scraping Form */}
         <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-8 mb-8 shadow-lg animate-scale-in">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="space-y-3">
                 <label className="text-lg font-medium text-foreground flex items-center gap-3">
                   <MapPin className="w-5 h-5 text-primary" />
@@ -197,6 +201,13 @@ export const EstateSalesScraper = () => {
                     <SelectItem value="999">All distances</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-3">
+                <AuctionTypeFilter
+                  selectedTypes={selectedAuctionTypes}
+                  onTypesChange={setSelectedAuctionTypes}
+                />
               </div>
             </div>
             

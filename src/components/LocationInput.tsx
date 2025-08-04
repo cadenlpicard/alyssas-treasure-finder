@@ -68,28 +68,7 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
     try {
       let allSuggestions: LocationSuggestion[] = [];
       
-      // Strategy 1: Search for addresses (often includes zipcodes)
-      const addressResponse = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
-        `access_token=${mapboxToken}&` +
-        `country=us&` +
-        `types=address,postcode&` +
-        `autocomplete=true&` +
-        `limit=8`
-      );
-      
-      const addressData = await addressResponse.json();
-      if (addressData.features && addressData.features.length > 0) {
-        const addressSuggestions = addressData.features.map((feature: any) => ({
-          place_name: feature.place_name,
-          text: feature.text,
-          center: feature.center,
-          context: feature.context || []
-        }));
-        allSuggestions = [...allSuggestions, ...addressSuggestions];
-      }
-      
-      // Strategy 2: Search for places and then reverse geocode to get zipcode
+      // Search for places and then reverse geocode to get zipcode
       const placeResponse = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=${mapboxToken}&` +
@@ -144,21 +123,19 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
       }
       
       if (allSuggestions.length > 0) {
-        // Remove duplicates and prioritize results with zipcodes
-        const uniqueSuggestions = allSuggestions.filter((suggestion, index, self) => 
+        // Filter to only include cities/places with zipcodes (no street addresses)
+        const citiesWithZipcodes = allSuggestions.filter(suggestion => {
+          const hasZipcode = suggestion.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(suggestion.place_name);
+          const isCity = suggestion.context?.some(item => item.id.startsWith('place.')) || !suggestion.context?.some(item => item.id.startsWith('address.'));
+          return hasZipcode && isCity;
+        });
+        
+        // Remove duplicates and sort by zipcode availability
+        const uniqueSuggestions = citiesWithZipcodes.filter((suggestion, index, self) => 
           index === self.findIndex(s => s.place_name === suggestion.place_name)
         );
         
-        // Sort so items with zipcodes come first
-        const sortedSuggestions = uniqueSuggestions.sort((a, b) => {
-          const aHasZip = a.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(a.place_name);
-          const bHasZip = b.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(b.place_name);
-          if (aHasZip && !bHasZip) return -1;
-          if (!aHasZip && bHasZip) return 1;
-          return 0;
-        });
-        
-        setSuggestions(sortedSuggestions.slice(0, 8));
+        setSuggestions(uniqueSuggestions.slice(0, 8));
         setShowSuggestions(true);
       } else {
         setSuggestions([]);
@@ -243,6 +220,68 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
     return `https://www.estatesales.net/${location.state}/${location.city.replace(/\s+/g, '-')}/${location.zipcode}`;
   };
 
+  const handleLocateMe = () => {
+    if ("geolocation" in navigator) {
+      setIsLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            
+            // Reverse geocode to get location details
+            const response = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?` +
+              `access_token=${mapboxToken}&` +
+              `types=place,postcode&` +
+              `limit=1`
+            );
+            
+            const data = await response.json();
+            if (data.features && data.features.length > 0) {
+              const feature = data.features[0];
+              const suggestion: LocationSuggestion = {
+                place_name: feature.place_name,
+                text: feature.text,
+                center: feature.center,
+                context: feature.context || []
+              };
+              
+              await handleLocationSelect(suggestion);
+              toast({
+                title: "Location Found",
+                description: `Set location to ${feature.place_name}`,
+              });
+            } else {
+              throw new Error("No location data found");
+            }
+          } catch (error) {
+            toast({
+              title: "Location Error",
+              description: "Could not determine your location. Please search manually.",
+              variant: "destructive",
+            });
+          } finally {
+            setIsLoading(false);
+          }
+        },
+        (error) => {
+          setIsLoading(false);
+          toast({
+            title: "Location Access Denied",
+            description: "Please allow location access or search manually.",
+            variant: "destructive",
+          });
+        }
+      );
+    } else {
+      toast({
+        title: "Location Not Supported",
+        description: "Your browser doesn't support location services.",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     if (selectedLocation) {
       const url = generateUrl(selectedLocation);
@@ -300,68 +339,82 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
           <MapPin className="w-4 h-4 text-primary" />
           Select Location & Zipcode
         </Label>
-        <div className="relative">
-          <Input
-            value={searchValue}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            placeholder="Search any city or zipcode..."
-            className="h-12 border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
-            disabled={!mapboxToken}
-          />
-          {isLoading && (
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-            </div>
-          )}
-          
-          {/* Suggestions Dropdown */}
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-50 w-full mt-1 bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {suggestions.map((suggestion, index) => {
-                const hasZipcode = suggestion.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(suggestion.place_name);
-                const zipcode = suggestion.context?.find(item => item.id.startsWith('postcode.'))?.text || suggestion.place_name.match(/\b(\d{5})\b/)?.[1];
-                
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleLocationSelect(suggestion)}
-                    className={`w-full px-4 py-3 text-left hover:bg-accent/50 flex items-center gap-3 border-b border-border/30 last:border-b-0 transition-colors ${hasZipcode ? 'bg-green-50 dark:bg-green-950/20' : 'opacity-60'}`}
-                  >
-                    <MapPin className={`w-4 h-4 flex-shrink-0 ${hasZipcode ? 'text-green-600' : 'text-muted-foreground'}`} />
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-foreground truncate">
-                          {suggestion.text}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Input
+              value={searchValue}
+              onChange={(e) => handleInputChange(e.target.value)}
+              onFocus={handleInputFocus}
+              onBlur={handleInputBlur}
+              placeholder="Search any city or zipcode..."
+              className="h-12 border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
+              disabled={!mapboxToken}
+            />
+            {isLoading && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            
+            {/* Suggestions Dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {suggestions.map((suggestion, index) => {
+                  const hasZipcode = suggestion.context?.some(item => item.id.startsWith('postcode.')) || /\b\d{5}\b/.test(suggestion.place_name);
+                  const zipcode = suggestion.context?.find(item => item.id.startsWith('postcode.'))?.text || suggestion.place_name.match(/\b(\d{5})\b/)?.[1];
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleLocationSelect(suggestion)}
+                      className={`w-full px-4 py-3 text-left hover:bg-accent/50 flex items-center gap-3 border-b border-border/30 last:border-b-0 transition-colors ${hasZipcode ? 'bg-green-50 dark:bg-green-950/20' : 'opacity-60'}`}
+                    >
+                      <MapPin className={`w-4 h-4 flex-shrink-0 ${hasZipcode ? 'text-green-600' : 'text-muted-foreground'}`} />
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-foreground truncate">
+                            {suggestion.text}
+                          </span>
+                          {hasZipcode && zipcode && (
+                            <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded">
+                              {zipcode}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-sm text-muted-foreground truncate">
+                          {suggestion.place_name}
                         </span>
-                        {hasZipcode && zipcode && (
-                          <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded">
-                            {zipcode}
+                        {!hasZipcode && (
+                          <span className="text-xs text-red-600 dark:text-red-400">
+                            No zipcode available
                           </span>
                         )}
                       </div>
-                      <span className="text-sm text-muted-foreground truncate">
-                        {suggestion.place_name}
-                      </span>
-                      {!hasZipcode && (
-                        <span className="text-xs text-red-600 dark:text-red-400">
-                          No zipcode available
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            
+            {/* No results message */}
+            {showSuggestions && suggestions.length === 0 && searchValue.length > 2 && !isLoading && (
+              <div className="absolute z-50 w-full mt-1 bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg p-4">
+                <p className="text-sm text-muted-foreground">No locations found. Try a different search term.</p>
+              </div>
+            )}
+          </div>
           
-          {/* No results message */}
-          {showSuggestions && suggestions.length === 0 && searchValue.length > 2 && !isLoading && (
-            <div className="absolute z-50 w-full mt-1 bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg p-4">
-              <p className="text-sm text-muted-foreground">No locations found. Try a different search term.</p>
-            </div>
-          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={handleLocateMe}
+            disabled={!mapboxToken || isLoading}
+            className="h-12 w-12 rounded-xl border-2 border-border/50 hover:border-primary/50 transition-all duration-300"
+            title="Use my current location"
+          >
+            <MapPin className="w-5 h-5" />
+          </Button>
         </div>
       </div>
 
