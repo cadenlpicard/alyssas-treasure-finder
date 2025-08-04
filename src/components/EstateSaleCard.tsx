@@ -206,6 +206,16 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
   const displayCity = sale.city || extracted.city;
   const displayState = sale.state || extracted.state;
 
+  // Debug logging for address issues
+  console.log('Estate Sale Debug:', {
+    title: displayTitle,
+    address: displayAddress,
+    city: displayCity,
+    state: displayState,
+    saleAddress: sale.address,
+    extractedAddress: extracted.address
+  });
+
   return (
     <Card className={`group hover:shadow-lg transition-all duration-300 border-vintage-gold/20 bg-card/80 backdrop-blur ${
       isSelected ? 'ring-2 ring-vintage-gold bg-vintage-gold/10' : ''
@@ -253,8 +263,16 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
               
               {/* Show warning badge for address issues */}
               {(() => {
+                // Debug the address checking logic
+                console.log('Badge Logic Debug:', {
+                  displayAddress,
+                  isEmpty: !displayAddress || displayAddress === 'Address TBD' || displayAddress.trim() === '',
+                  hasStreetPattern: displayAddress ? /\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)/i.test(displayAddress) : false
+                });
+                
                 // Check if we have no address or just a placeholder
                 if (!displayAddress || displayAddress === 'Address TBD' || displayAddress.trim() === '') {
+                  console.log('Showing badge: No address');
                   return (
                     <span className="text-xs text-red-600 bg-red-50 dark:bg-red-950/20 px-2 py-1 rounded mt-1 w-fit">
                       🚫 Address not available yet
@@ -266,6 +284,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
                 const hasStreetAddress = /\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)/i.test(displayAddress);
                 
                 if (!hasStreetAddress) {
+                  console.log('Showing badge: No street address pattern');
                   return (
                     <span className="text-xs text-red-600 bg-red-50 dark:bg-red-950/20 px-2 py-1 rounded mt-1 w-fit">
                       🚫 Address not available yet
@@ -273,6 +292,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
                   );
                 }
                 
+                console.log('No badge: Full address detected');
                 return null;
               })()}
               
