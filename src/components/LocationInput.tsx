@@ -99,8 +99,33 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
     }
   };
 
+  // Fetch default zipcode for a city if none is provided
+  const fetchDefaultZipcode = async (city: string, state: string): Promise<string> => {
+    if (!mapboxToken) return '';
+    
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(city + ', ' + state)}.json?` +
+        `access_token=${mapboxToken}&` +
+        `country=us&` +
+        `types=postcode&` +
+        `limit=1`
+      );
+      
+      const data = await response.json();
+      
+      if (data.features && data.features.length > 0) {
+        return data.features[0].text || '';
+      }
+    } catch (error) {
+      console.error('Error fetching default zipcode:', error);
+    }
+    
+    return '';
+  };
+
   // Parse location data from Mapbox suggestion
-  const parseLocationFromSuggestion = (suggestion: LocationSuggestion): LocationData => {
+  const parseLocationFromSuggestion = async (suggestion: LocationSuggestion): Promise<LocationData> => {
     const { place_name, context } = suggestion;
     
     // Extract state and zipcode from context
@@ -141,6 +166,11 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
       }
     }
     
+    // If still no zipcode and we have city and state, fetch a default one
+    if (!zipcode && city && state) {
+      zipcode = await fetchDefaultZipcode(city, state);
+    }
+    
     return {
       city,
       state,
@@ -164,8 +194,8 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
     }
   }, [selectedLocation, onLocationChange]);
 
-  const handleLocationSelect = (suggestion: LocationSuggestion) => {
-    const location = parseLocationFromSuggestion(suggestion);
+  const handleLocationSelect = async (suggestion: LocationSuggestion) => {
+    const location = await parseLocationFromSuggestion(suggestion);
     setSelectedLocation(location);
     setSearchValue(suggestion.place_name);
     setShowSuggestions(false);
