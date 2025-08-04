@@ -325,7 +325,7 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     return directions;
   };
 
-  // Calculate optimized route using ChatGPT
+  // Calculate optimized route using Mapbox Optimization API (TSP solver)
   const calculateOptimizedRoute = async (coordinates: [number, number][], salesData: EstateSale[], includeStart: boolean = false) => {
     // Remove duplicate sales data based on address to prevent duplicate waypoints
     const uniqueSalesData: EstateSale[] = [];
@@ -334,8 +334,8 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     
     salesData.forEach((sale, index) => {
       if (index < coordinates.length) {
-        const addressKey = sale.address?.toLowerCase().trim() || '';
-        if (addressKey && !seenAddresses.has(addressKey)) {
+        const addressKey = sale.address.toLowerCase().trim();
+        if (!seenAddresses.has(addressKey)) {
           seenAddresses.add(addressKey);
           uniqueSalesData.push(sale);
           uniqueCoordinates.push(coordinates[index]);
@@ -345,91 +345,83 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
     
     console.log(`Removed ${salesData.length - uniqueSalesData.length} duplicate sales`);
     
-    if (uniqueSalesData.length < 2) {
-      console.log('Not enough unique sales for route optimization');
-      return null;
+    let routeCoords = [...uniqueCoordinates];
+    
+    // Add starting address as first coordinate if provided
+    if (includeStart && startingCoords) {
+      routeCoords = [startingCoords, ...uniqueCoordinates];
     }
-
+    
+    if (routeCoords.length < 2) return null;
+    
     setIsLoadingRoute(true);
     try {
-      // Extract addresses for ChatGPT optimization
-      const addresses = uniqueSalesData.map(sale => sale.address || extractAddressFromSale(sale) || 'Unknown address');
+      // Use driving-traffic profile for real-time traffic awareness
+      const waypoints = routeCoords.map(coord => coord.join(',')).join(';');
       
-      console.log('Sending addresses to ChatGPT for optimization:', addresses);
-      
-      const { data, error } = await supabase.functions.invoke('optimize-route-with-chatgpt', {
-        body: {
-          addresses: addresses,
-          startingAddress: includeStart ? startingAddress : null
-        }
+      // Configure optimization parameters based on Mapbox documentation
+      const params = new URLSearchParams({
+        access_token: mapboxToken,
+        overview: 'full',
+        steps: 'true',
+        geometries: 'geojson',
+        annotations: 'distance,duration'
       });
 
-      if (error) {
-        console.error('Error calling ChatGPT optimization:', error);
-        throw error;
+      // Add roundtrip and source/destination parameters correctly
+      if (includeStart && startingCoords) {
+        params.append('roundtrip', 'true');
+        params.append('source', 'first');
+        params.append('destination', 'last'); // Must be 'last' for roundtrip, not 'first'
+      } else {
+        params.append('roundtrip', 'false');
+        params.append('source', 'any');
+        params.append('destination', 'any');
       }
-
-      console.log('ChatGPT optimization result:', data);
-
-      if (data.optimizedOrder && data.optimizedOrder.length > 0) {
-        // Reorder sales and coordinates based on ChatGPT optimization
-        const optimizedSales = data.optimizedOrder.map((index: number) => uniqueSalesData[index]);
-        const optimizedCoords = data.optimizedOrder.map((index: number) => uniqueCoordinates[index]);
+      
+      const response = await fetch(
+        `https://api.mapbox.com/optimized-trips/v1/mapbox/driving-traffic/${waypoints}?${params.toString()}`
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Optimization API error:', errorData);
+        throw new Error(errorData.message || 'Failed to calculate route');
+      }
+      
+      const data = await response.json();
+      
+      if (data.trips && data.trips[0]) {
+        const trip = data.trips[0];
         
-        // Generate directions with optimized order
-        const directions: Array<{title: string, address: string, coords: [number, number], googleMapsUrl: string}> = [];
-        
-        // Add starting point if included
-        if (includeStart && startingCoords) {
-          directions.push({
-            title: 'Starting Point',
-            address: startingAddress,
-            coords: startingCoords,
-            googleMapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${startingCoords[1]},${startingCoords[0]}&travelmode=driving`
-          });
+        // Generate directions from the optimized waypoints and sales data
+        // Check if waypoints exist and are valid
+        if (trip.waypoints && Array.isArray(trip.waypoints)) {
+          const directions = generateDirections(trip.waypoints, salesData, includeStart);
+          setRouteDirections(directions);
+        } else {
+          console.warn('No valid waypoints returned from optimization API');
+          // Create fallback directions from coordinates and sales data
+          const fallbackDirections = createFallbackDirections(coordinates, salesData, includeStart);
+          setRouteDirections(fallbackDirections);
         }
         
-        optimizedSales.forEach((sale: EstateSale, index: number) => {
-          const coords = optimizedCoords[index];
-          const address = sale.address || extractAddressFromSale(sale) || 'Unknown address';
-          
-          directions.push({
-            title: sale.title || 'Estate Sale',
-            address: address,
-            coords: coords,
-            googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
-          });
-        });
-        
-        setRouteDirections(directions);
-        setRouteInfo({
-          distance: data.estimatedDistance || 'Unknown',
-          duration: data.estimatedTime || 'Unknown'
-        });
-
         return {
-          geometry: null, // No map route line since we're using Google Maps
-          distance: data.estimatedDistance || 'Unknown',
-          duration: data.estimatedTime || 'Unknown',
-          waypoints: optimizedSales,
-          googleMapsUrl: data.googleMapsUrl
+          geometry: trip.geometry,
+          distance: (trip.distance / 1609.34).toFixed(1), // Convert to miles
+          duration: Math.round(trip.duration / 60), // Convert to minutes
+          waypoints: trip.waypoints,
+          legs: trip.legs || []
         };
-      } else {
-        // Fallback to original order
-        const fallbackDirections = createFallbackDirections(uniqueCoordinates, uniqueSalesData, includeStart);
-        setRouteDirections(fallbackDirections);
-        return null;
       }
+      return null;
     } catch (error) {
-      console.error('Error with ChatGPT route optimization:', error);
+      console.error('Route calculation error:', error);
       toast({
         title: "Route Error",
-        description: "Failed to optimize route with ChatGPT. Showing original order.",
+        description: "Failed to calculate optimal route. Showing direct connections instead.",
         variant: "destructive",
       });
-      // Fallback to simple directions
-      const fallbackDirections = createFallbackDirections(coordinates, salesData, includeStart);
-      setRouteDirections(fallbackDirections);
       return null;
     } finally {
       setIsLoadingRoute(false);
@@ -939,16 +931,26 @@ export const RouteMap = ({ selectedSales, onClose }: RouteMapProps) => {
               <Button
                 variant="default"
                 onClick={() => {
-                  // Use ChatGPT optimized Google Maps URL if available
-                  if (routeDirections.length > 0) {
-                    // Build URL using all addresses for better route optimization
-                    const addresses = routeDirections.map(dir => encodeURIComponent(dir.address));
-                    let url = `https://www.google.com/maps/dir/`;
-                    url += addresses.join('/');
-                    url += `/?travelmode=driving`;
-                    
-                    window.open(url, '_blank');
+                  // Create Google Maps directions URL with proper format
+                  if (routeDirections.length < 2) return;
+                  
+                  const origin = routeDirections[0];
+                  const destination = routeDirections[routeDirections.length - 1];
+                  const waypoints = routeDirections.slice(1, -1);
+                  
+                  let url = `https://www.google.com/maps/dir/?api=1`;
+                  url += `&origin=${origin.coords[1]},${origin.coords[0]}`;
+                  url += `&destination=${destination.coords[1]},${destination.coords[0]}`;
+                  
+                  if (waypoints.length > 0) {
+                    const waypointString = waypoints
+                      .map(wp => `${wp.coords[1]},${wp.coords[0]}`)
+                      .join('|');
+                    url += `&waypoints=${waypointString}`;
                   }
+                  
+                  url += `&travelmode=driving`;
+                  window.open(url, '_blank');
                 }}
                 className="w-full"
               >
