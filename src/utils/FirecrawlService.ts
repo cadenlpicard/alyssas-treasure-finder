@@ -67,13 +67,15 @@ export class FirecrawlService {
   }
 
   static parseEstateSales(markdown: string): any[] {
-    console.log('Raw markdown content:', markdown.substring(0, 500));
+    console.log('Raw markdown content length:', markdown.length);
+    console.log('Full markdown content:', markdown);
     const sales: any[] = [];
     
     // Split by image patterns - each estate sale starts with [![](
     const saleBlocks = markdown.split(/(?=\[!\[\]\(https:\/\/picturescdn\.estatesales\.net)/);
     
     console.log(`Found ${saleBlocks.length} potential sale blocks`);
+    console.log('First few blocks:', saleBlocks.slice(0, 3));
     
     for (let i = 1; i < saleBlocks.length; i++) { // Skip first block (header content)
       const block = saleBlocks[i];
