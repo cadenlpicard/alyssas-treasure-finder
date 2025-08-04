@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { addresses } = await req.json();
+    const { addresses, startingAddress } = await req.json();
 
     if (!addresses || !Array.isArray(addresses) || addresses.length < 2) {
       return new Response(
@@ -28,13 +28,16 @@ serve(async (req) => {
     }
 
     console.log('Optimizing route for addresses:', addresses);
+    console.log('Starting address:', startingAddress);
 
     const prompt = `You are a route optimization expert. Given the following list of addresses in Michigan, please return the most efficient visiting order to minimize total driving time and distance.
+
+${startingAddress ? `Starting Address: ${startingAddress}` : ''}
 
 Addresses to visit:
 ${addresses.map((addr, index) => `${index + 1}. ${addr}`).join('\n')}
 
-Please analyze these addresses and return ONLY a JSON array with the optimal order. The array should contain the original addresses in the most efficient visiting sequence.
+Please analyze these addresses and return ONLY a JSON array with the optimal order. ${startingAddress ? 'The first address in the array should always be the starting address, followed by the estate sales in optimal visiting order.' : 'The array should contain the addresses in the most efficient visiting sequence.'}
 
 Important:
 - Return ONLY the JSON array, no other text
@@ -42,6 +45,7 @@ Important:
 - Consider typical Michigan traffic patterns and road networks
 - Optimize for the shortest total driving time and distance
 - The response must be valid JSON
+${startingAddress ? '- Always start with the provided starting address' : ''}
 
 Example format: ["address1", "address2", "address3"]`;
 

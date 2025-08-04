@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Loader2, Sparkles } from 'lucide-react';
 import { EstateSaleCard } from './EstateSaleCard';
-import { RouteMap } from './RouteMap';
+import { RouteOptimizationDialog } from './RouteOptimizationDialog';
 import { LocationInput } from './LocationInput';
 
 interface EstateSale {
@@ -43,7 +43,7 @@ export const EstateSalesScraper = () => {
   const [progress, setProgress] = useState(0);
   const [crawlResult, setCrawlResult] = useState<CrawlResult | null>(null);
   const [selectedSales, setSelectedSales] = useState<EstateSale[]>([]);
-  const [showRouteMap, setShowRouteMap] = useState(false);
+  const [showRouteDialog, setShowRouteDialog] = useState(false);
 
   // Helper function to parse distance from text
   const parseDistance = (distanceText?: string): number => {
@@ -70,7 +70,7 @@ export const EstateSalesScraper = () => {
     }
   };
 
-  const handlePlanRoute = async () => {
+  const handlePlanRoute = () => {
     if (selectedSales.length < 2) {
       toast({
         title: "Selection Required",
@@ -79,103 +79,7 @@ export const EstateSalesScraper = () => {
       });
       return;
     }
-
-    // Extract addresses from selected sales
-    const addresses = selectedSales.map(sale => {
-      // Try to get the best available address
-      const address = sale.address || 
-        (sale.markdown ? extractAddressFromMarkdown(sale.markdown) : null) ||
-        'Grand Blanc, MI';
-      return address;
-    });
-
-    console.log('Planning route for addresses:', addresses);
-
-    try {
-      // Call the ChatGPT optimization service
-      const { data, error } = await supabase.functions.invoke('optimize-route', {
-        body: { addresses }
-      });
-
-      if (error) {
-        console.error('Route optimization error:', error);
-        toast({
-          title: "Route Optimization Failed",
-          description: "Using original order instead",
-          variant: "destructive",
-        });
-      } else if (data?.optimizedRoute) {
-        console.log('Optimized route received:', data.optimizedRoute);
-        
-        // Reorder selectedSales based on optimized route
-        const reorderedSales = data.optimizedRoute.map((optimizedAddress: string) => {
-          return selectedSales.find(sale => {
-            const saleAddress = sale.address || 
-              (sale.markdown ? extractAddressFromMarkdown(sale.markdown) : null) ||
-              'Grand Blanc, MI';
-            return saleAddress === optimizedAddress;
-          });
-        }).filter(Boolean); // Remove any undefined entries
-
-        setSelectedSales(reorderedSales);
-        
-        toast({
-          title: "Route Optimized",
-          description: "Estate sales reordered for optimal route planning",
-        });
-      }
-    } catch (error) {
-      console.error('Route optimization error:', error);
-      toast({
-        title: "Route Optimization Failed",
-        description: "Using original order instead",
-        variant: "destructive",
-      });
-    }
-
-    setShowRouteMap(true);
-  };
-
-  // Helper function to extract address from markdown
-  const extractAddressFromMarkdown = (markdown: string): string | null => {
-    if (!markdown) return null;
-    
-    // Look for street address patterns in markdown
-    const streetAddressPattern = /(\d+\s+[^\\,\n]+(?:pkwy|parkway|drive|dr\.?|road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|court|ct\.?|boulevard|blvd\.?|circle|cir\.?|way|place|pl\.?))\s*\\{2,}\s*\\{2,}\s*([^\\,\n]+),?\s*(MI|Michigan)\s*(\d{5})?/i;
-    const streetMatch = markdown.match(streetAddressPattern);
-    
-    if (streetMatch) {
-      const streetAddress = streetMatch[1].trim();
-      const city = streetMatch[2].trim();
-      const state = streetMatch[3] || 'MI';
-      const zip = streetMatch[4] || '';
-      
-      let fullAddress = streetAddress + `, ${city}, ${state}`;
-      if (zip) {
-        fullAddress += ` ${zip}`;
-      }
-      
-      return fullAddress;
-    }
-    
-    // Look for city, state, zip pattern
-    const cityStatePattern = /([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})/i;
-    const cityMatch = markdown.match(cityStatePattern);
-    
-    if (cityMatch) {
-      const city = cityMatch[1].trim();
-      const state = cityMatch[2] || 'MI';
-      const zip = cityMatch[3] || '';
-      
-      let fullAddress = `${city}, ${state}`;
-      if (zip) {
-        fullAddress += ` ${zip}`;
-      }
-      
-      return fullAddress;
-    }
-    
-    return null;
+    setShowRouteDialog(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -224,17 +128,6 @@ export const EstateSalesScraper = () => {
       setIsLoading(false);
     }
   };
-
-  if (showRouteMap) {
-    return (
-      <div className="w-full max-w-4xl mx-auto p-8">
-        <RouteMap 
-          selectedSales={selectedSales} 
-          onClose={() => setShowRouteMap(false)} 
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="p-8 md:p-12">
@@ -394,9 +287,9 @@ export const EstateSalesScraper = () => {
                       {radiusFilter !== 999 && filteredData.length !== deduplicatedData.length && (
                         <Badge variant="outline" className="text-xs">
                           {deduplicatedData.length - filteredData.length} filtered out
-                        </Badge>
-                      )}
-                    </div>
+                         </Badge>
+                       )}
+                     </div>
                     {selectedSales.length > 0 && (
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-xs">
@@ -444,6 +337,12 @@ export const EstateSalesScraper = () => {
           </CardContent>
         </Card>
       )}
+
+      <RouteOptimizationDialog 
+        open={showRouteDialog}
+        onOpenChange={setShowRouteDialog}
+        selectedSales={selectedSales}
+      />
       </div>
     </div>
   );
