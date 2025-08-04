@@ -101,7 +101,7 @@ export const MapView = ({ sales }: MapViewProps) => {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v11',
+      style: 'mapbox://styles/mapbox/light-v10',
       center: [avgLng, avgLat],
       zoom: 10
     });
@@ -136,25 +136,22 @@ export const MapView = ({ sales }: MapViewProps) => {
         iconEl.style.fontSize = '16px';
         markerEl.appendChild(iconEl);
 
-        // Add hover effect using transform that doesn't interfere with Mapbox positioning
+        // Add hover effect and show details on hover
         markerEl.addEventListener('mouseenter', () => {
           markerEl.style.filter = 'brightness(1.1)';
           markerEl.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
+          setSelectedSale(sale);
         });
         markerEl.addEventListener('mouseleave', () => {
           markerEl.style.filter = 'brightness(1)';
           markerEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+          setSelectedSale(null);
         });
 
-        // Create marker and popup
+        // Create marker and add to map
         const marker = new mapboxgl.Marker(markerEl)
           .setLngLat(coord)
           .addTo(map.current!);
-
-        // Add click event to show sale details
-        markerEl.addEventListener('click', () => {
-          setSelectedSale(sale);
-        });
       });
     });
 
