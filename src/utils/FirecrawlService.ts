@@ -110,82 +110,45 @@ export class FirecrawlService {
         sale.lastModified = modifiedMatch[1].trim();
       }
       
-      // Improved address extraction - look for actual street addresses
+      // Extract address from estate sale link pattern - much more reliable
       console.log('Processing block for address extraction:', block.substring(0, 200));
       
-      // Split by various separators and look for street addresses
-      const lines = block.split(/[\\\\|\n|\r]/);
-      let fullAddress = '';
-      let streetAddress = '';
-      let city = '';
-      let state = '';
-      let zipCode = '';
+      // Look for the actual estate sale URL which contains the address structure
+      const urlMatch = block.match(/\]\((https:\/\/www\.estatesales\.net\/([A-Z]{2})\/([^\/]+)\/(\d{5})?[^)]*)\)/);
       
-      for (const line of lines) {
-        const cleanLine = line.trim();
+      if (urlMatch) {
+        const [, fullUrl, state, cityFromUrl, zipCode] = urlMatch;
         
-        // Skip empty lines or lines that are clearly not addresses
-        if (!cleanLine || cleanLine.length < 5) continue;
+        // Convert URL city name back to readable format
+        const city = cityFromUrl.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         
-      // Look for full address with street, city, state, zip
-      const fullAddressPattern = /(\d+\s+[A-Za-z\s]+(?:dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)\.?)\s*,?\s*([A-Z][a-z\s]+),?\s*([A-Z]{2})\s*(\d{5})?/i;
-      const fullMatch = cleanLine.match(fullAddressPattern);
-      
-      if (fullMatch) {
-        streetAddress = fullMatch[1].trim();
-        city = fullMatch[2].trim();
-        state = fullMatch[3];
-        zipCode = fullMatch[4] || '';
-        fullAddress = `${streetAddress}, ${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
-        console.log('Found full address:', fullAddress);
-        break;
-      }
+        console.log('Extracted from URL:', { state, city, zipCode, fullUrl });
         
-        // Look for just street address (number + street name + type) - but exclude distance info
-        const streetPattern = /^\d+\s+[A-Za-z\s]+(?:dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)\.?$/i;
-        const distancePattern = /^\d+\s+miles?\s+away$/i;
-        
-        if (streetPattern.test(cleanLine) && !distancePattern.test(cleanLine) && !streetAddress) {
-          streetAddress = cleanLine;
-          console.log('Found street address:', streetAddress);
-        }
-        
-        // Look for city, state pattern
-        const cityStatePattern = /^([A-Z][a-z\s]+),?\s*([A-Z]{2})\s*(\d{5})?$/i;
-        const cityMatch = cleanLine.match(cityStatePattern);
-        if (cityMatch && !city) {
-          city = cityMatch[1].trim();
-          state = cityMatch[2];
-          zipCode = cityMatch[3] || '';
-          console.log('Found city/state:', city, state, zipCode);
-        }
-      }
-      
-      // Set the address fields
-      if (streetAddress && city && state) {
-        sale.address = `${streetAddress}, ${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
-        sale.streetAddress = streetAddress;
-        sale.city = city;
         sale.state = state;
-        sale.zipCode = zipCode;
-      } else if (streetAddress) {
-        // If we have street address but no city/state, try to extract from other patterns in the block
-        sale.streetAddress = streetAddress;
-        
-        // Look for city/state elsewhere in the block
-        const blockCityMatch = block.match(/([A-Z][a-z\s]+),?\s*([A-Z]{2})/i);
-        if (blockCityMatch) {
-          sale.city = blockCityMatch[1].trim();
-          sale.state = blockCityMatch[2];
-          sale.address = `${streetAddress}, ${sale.city}, ${sale.state}`;
-        } else {
-          sale.address = streetAddress; // At least we have the street
-        }
-      } else if (city && state) {
-        // If we only have city/state, use that
         sale.city = city;
-        sale.state = state;
-        sale.address = `${city}, ${state}`;
+        sale.zipCode = zipCode || '';
+        sale.address = `${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
+        sale.url = fullUrl;
+      } else {
+        // Fallback: try to find address info in the text
+        const lines = block.split(/[\\\\|\n|\r]/);
+        
+        for (const line of lines) {
+          const cleanLine = line.trim();
+          if (!cleanLine || cleanLine.length < 3) continue;
+          
+          // Look for city, state pattern in text
+          const cityStatePattern = /^([A-Za-z\s]+),?\s*([A-Z]{2})\s*(\d{5})?$/;
+          const cityMatch = cleanLine.match(cityStatePattern);
+          if (cityMatch && !sale.city) {
+            sale.city = cityMatch[1].trim();
+            sale.state = cityMatch[2];
+            sale.zipCode = cityMatch[3] || '';
+            sale.address = `${sale.city}, ${sale.state}${sale.zipCode ? ' ' + sale.zipCode : ''}`;
+            console.log('Found city/state in text:', sale.city, sale.state, sale.zipCode);
+            break;
+          }
+        }
       }
       
       console.log('Final address extraction result:', {
@@ -220,10 +183,12 @@ export class FirecrawlService {
         sale.status = statusMatch[1].trim();
       }
       
-      // Extract URL - look for the final estatesales.net link
-      const urlMatch = block.match(/\]\((https:\/\/www\.estatesales\.net\/[^)]+)\)/);
-      if (urlMatch) {
-        sale.url = urlMatch[1];
+      // Set URL if not already set from address extraction
+      if (!sale.url) {
+        const fallbackUrlMatch = block.match(/\]\((https:\/\/www\.estatesales\.net\/[^)]+)\)/);
+        if (fallbackUrlMatch) {
+          sale.url = fallbackUrlMatch[1];
+        }
       }
       
       // Extract featured status

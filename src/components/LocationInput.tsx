@@ -58,7 +58,7 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
 
   // Fetch location suggestions from Mapbox
   const fetchSuggestions = async (query: string) => {
-    if (!query.trim() || query.length < 3 || !mapboxToken) {
+    if (!query.trim() || query.length < 2 || !mapboxToken) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
@@ -66,74 +66,80 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
 
     setIsLoading(true);
     try {
-      // Search for postcodes first to get specific zipcodes
-      const postcodeResponse = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
-        `access_token=${mapboxToken}&` +
-        `country=us&` +
-        `types=postcode&` +
-        `autocomplete=true&` +
-        `limit=8`
-      );
-      
-      const postcodeData = await postcodeResponse.json();
-      let allSuggestions: LocationSuggestion[] = [];
-      
-      // Add postcode results first (these will have zipcodes)
-      if (postcodeData.features && postcodeData.features.length > 0) {
-        const postcodeSuggestions = postcodeData.features.map((feature: any) => ({
-          place_name: feature.place_name,
-          text: feature.text,
-          center: feature.center,
-          context: feature.context || []
-        }));
-        allSuggestions = [...postcodeSuggestions];
-      }
-      
-      // If we don't have enough results, search for places and try to get their zipcodes
-      if (allSuggestions.length < 6) {
-        const placeResponse = await fetch(
+      // First try direct zipcode search if query looks like a zipcode
+      if (/^\d{3,5}$/.test(query)) {
+        const zipcodeResponse = await fetch(
           `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
           `access_token=${mapboxToken}&` +
           `country=us&` +
-          `types=place&` +
+          `types=postcode&` +
           `autocomplete=true&` +
-          `limit=6`
+          `limit=8`
         );
         
-        const placeData = await placeResponse.json();
-        if (placeData.features && placeData.features.length > 0) {
-          // For each place, try to find zipcodes in that area
-          for (const place of placeData.features.slice(0, 3)) {
-            const cityName = place.text;
-            const stateName = place.context?.find((item: any) => item.id.startsWith('region.'))?.text;
-            
-            if (stateName) {
-              try {
-                // Search for zipcodes in this specific city
-                const cityZipResponse = await fetch(
-                  `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(cityName)}.json?` +
-                  `access_token=${mapboxToken}&` +
-                  `country=us&` +
-                  `types=postcode&` +
-                  `bbox=${place.bbox?.[0]},${place.bbox?.[1]},${place.bbox?.[2]},${place.bbox?.[3]}&` +
-                  `limit=3`
-                );
-                
-                const cityZipData = await cityZipResponse.json();
-                if (cityZipData.features && cityZipData.features.length > 0) {
-                  const cityZipSuggestions = cityZipData.features.map((feature: any) => ({
-                    place_name: feature.place_name,
-                    text: feature.text,
-                    center: feature.center,
-                    context: feature.context || []
-                  }));
-                  allSuggestions = [...allSuggestions, ...cityZipSuggestions];
-                }
-              } catch (error) {
-                // Continue if individual city search fails
-                console.log('Failed to get zipcodes for', cityName);
+        const zipcodeData = await zipcodeResponse.json();
+        if (zipcodeData.features && zipcodeData.features.length > 0) {
+          const zipcodeSuggestions = zipcodeData.features.map((feature: any) => ({
+            place_name: feature.place_name,
+            text: feature.text,
+            center: feature.center,
+            context: feature.context || []
+          }));
+          setSuggestions(zipcodeSuggestions);
+          setShowSuggestions(true);
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // Search for places (cities) and then find their zipcodes
+      const placeResponse = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
+        `access_token=${mapboxToken}&` +
+        `country=us&` +
+        `types=place&` +
+        `autocomplete=true&` +
+        `limit=10`
+      );
+      
+      const placeData = await placeResponse.json();
+      let allSuggestions: LocationSuggestion[] = [];
+      
+      if (placeData.features && placeData.features.length > 0) {
+        // For each city, try to get common zipcodes
+        for (const place of placeData.features) {
+          const cityName = place.text;
+          const stateName = place.context?.find((item: any) => item.id.startsWith('region.'))?.text;
+          
+          if (stateName && place.bbox) {
+            try {
+              // Search for zipcodes within the city's bounding box
+              const zipSearchResponse = await fetch(
+                `https://api.mapbox.com/geocoding/v5/mapbox.places/postcode.json?` +
+                `access_token=${mapboxToken}&` +
+                `country=us&` +
+                `types=postcode&` +
+                `bbox=${place.bbox[0]},${place.bbox[1]},${place.bbox[2]},${place.bbox[3]}&` +
+                `limit=5`
+              );
+              
+              const zipData = await zipSearchResponse.json();
+              if (zipData.features && zipData.features.length > 0) {
+                zipData.features.forEach((zipFeature: any) => {
+                  // Only add if the zipcode is actually in this city
+                  const zipPlace = zipFeature.context?.find((ctx: any) => ctx.id.startsWith('place.'));
+                  if (zipPlace && zipPlace.text.toLowerCase().includes(cityName.toLowerCase())) {
+                    allSuggestions.push({
+                      place_name: zipFeature.place_name,
+                      text: zipFeature.text,
+                      center: zipFeature.center,
+                      context: zipFeature.context || []
+                    });
+                  }
+                });
               }
+            } catch (error) {
+              console.log('Failed to get zipcodes for', cityName);
             }
           }
         }
@@ -142,7 +148,7 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
       if (allSuggestions.length > 0) {
         // Remove duplicates and limit results
         const uniqueSuggestions = allSuggestions.filter((suggestion, index, self) => 
-          index === self.findIndex(s => s.place_name === suggestion.place_name)
+          index === self.findIndex(s => s.text === suggestion.text)
         );
         
         setSuggestions(uniqueSuggestions.slice(0, 8));
