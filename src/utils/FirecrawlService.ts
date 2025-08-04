@@ -23,14 +23,32 @@ export class FirecrawlService {
 
       if (error) {
         console.error('Edge function error:', error);
+        
+        // Check if it's a 500 error from the scraping service
+        if (error.message?.includes('500') || error.message?.includes('scraping engines failed')) {
+          return { 
+            success: false, 
+            error: 'The estate sales website is currently blocking automated scraping. Please try again later or visit the website directly.' 
+          };
+        }
+        
         return { 
           success: false, 
-          error: error.message || 'Failed to call Firecrawl service' 
+          error: error.message || 'Failed to call scraping service' 
         };
       }
 
       if (!data.success) {
         console.error('Scrape failed:', data.error);
+        
+        // Check for specific scraping failure messages
+        if (data.error?.includes('scraping engines failed') || data.error?.includes('500')) {
+          return { 
+            success: false, 
+            error: 'The estate sales website is currently blocking automated access. Please try again later or visit the website directly.' 
+          };
+        }
+        
         return { 
           success: false, 
           error: data.error || 'Failed to scrape website' 
@@ -59,9 +77,20 @@ export class FirecrawlService {
       };
     } catch (error) {
       console.error('Error during scrape:', error);
+      
+      // Provide more helpful error messages
+      const errorMessage = error instanceof Error ? error.message : 'Failed to connect to scraping service';
+      
+      if (errorMessage.includes('500') || errorMessage.includes('scraping engines failed')) {
+        return { 
+          success: false, 
+          error: 'The estate sales website is currently blocking automated access. Please try again later or visit the website directly.' 
+        };
+      }
+      
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Failed to connect to Firecrawl service' 
+        error: errorMessage
       };
     }
   }
