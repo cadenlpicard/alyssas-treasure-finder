@@ -151,13 +151,17 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
   const parseLocationFromSuggestion = async (suggestion: LocationSuggestion): Promise<LocationData> => {
     const { place_name, context } = suggestion;
     
-    // Extract state and zipcode from context
+    // Extract state, city, and zipcode from context
     let state = '';
     let zipcode = '';
-    let city = suggestion.text;
+    let city = '';
     
     if (context) {
       context.forEach(item => {
+        if (item.id.startsWith('place.')) {
+          // Extract city name from place context
+          city = item.text;
+        }
         if (item.id.startsWith('region.')) {
           // Extract state abbreviation (e.g., "Michigan" -> "MI")
           const stateMatch = item.text.match(/\b([A-Z]{2})\b/);
@@ -179,6 +183,11 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
           zipcode = item.text;
         }
       });
+    }
+    
+    // If no city found in context, fall back to suggestion.text (for city/place results)
+    if (!city) {
+      city = suggestion.text;
     }
     
     // If no zipcode found, try to extract from place_name
