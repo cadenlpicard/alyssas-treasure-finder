@@ -110,37 +110,89 @@ export class FirecrawlService {
         sale.lastModified = modifiedMatch[1].trim();
       }
       
-      // Extract address - look for street address patterns and extract city/state
-      const addressLines = block.split('\\\\');
-      let addressFound = false;
-      for (const line of addressLines) {
-        if (line.includes('MI ') && /\d{5}/.test(line)) {
-          sale.address = line.trim();
-          // Extract city and state from full address
-          const cityStateMatch = line.match(/([^,]+),\s*(MI|Michigan)\s*(\d{5})?/i);
-          if (cityStateMatch) {
-            sale.city = cityStateMatch[1].trim();
-            sale.state = cityStateMatch[2];
-            sale.zipCode = cityStateMatch[3] || '';
-          }
-          addressFound = true;
+      // Improved address extraction - look for actual street addresses
+      console.log('Processing block for address extraction:', block.substring(0, 200));
+      
+      // Split by various separators and look for street addresses
+      const lines = block.split(/[\\\\|\n|\r]/);
+      let fullAddress = '';
+      let streetAddress = '';
+      let city = '';
+      let state = '';
+      let zipCode = '';
+      
+      for (const line of lines) {
+        const cleanLine = line.trim();
+        
+        // Skip empty lines or lines that are clearly not addresses
+        if (!cleanLine || cleanLine.length < 5) continue;
+        
+        // Look for full address with street, city, state, zip
+        const fullAddressPattern = /(\d+\s+[A-Za-z\s]+(?:dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)\.?)\s*,?\s*([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})?/i;
+        const fullMatch = cleanLine.match(fullAddressPattern);
+        
+        if (fullMatch) {
+          streetAddress = fullMatch[1].trim();
+          city = fullMatch[2].trim();
+          state = fullMatch[3];
+          zipCode = fullMatch[4] || '';
+          fullAddress = `${streetAddress}, ${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
+          console.log('Found full address:', fullAddress);
           break;
         }
-        // Also check for just street addresses without state
-        if (!addressFound && /^\d+\s+[a-zA-Z\s]+(?:rd|drive|dr|street|st|ave|avenue|lane|ln|ct|court|way|blvd|boulevard)/i.test(line.trim())) {
-          sale.streetAddress = line.trim();
+        
+        // Look for just street address (number + street name + type)
+        const streetPattern = /^\d+\s+[A-Za-z\s]+(?:dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)\.?$/i;
+        if (streetPattern.test(cleanLine) && !streetAddress) {
+          streetAddress = cleanLine;
+          console.log('Found street address:', streetAddress);
+        }
+        
+        // Look for city, state pattern
+        const cityStatePattern = /^([A-Z][a-z\s]+),?\s*(MI|Michigan)\s*(\d{5})?$/i;
+        const cityMatch = cleanLine.match(cityStatePattern);
+        if (cityMatch && !city) {
+          city = cityMatch[1].trim();
+          state = cityMatch[2];
+          zipCode = cityMatch[3] || '';
+          console.log('Found city/state:', city, state, zipCode);
         }
       }
       
-      // If no full address found, try to extract city from other patterns
-      if (!sale.city) {
-        const cityPattern = /([A-Z][a-z\s]+),?\s*(MI|Michigan)/i;
-        const cityMatch = block.match(cityPattern);
-        if (cityMatch) {
-          sale.city = cityMatch[1].trim();
-          sale.state = cityMatch[2];
+      // Set the address fields
+      if (streetAddress && city && state) {
+        sale.address = `${streetAddress}, ${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
+        sale.streetAddress = streetAddress;
+        sale.city = city;
+        sale.state = state;
+        sale.zipCode = zipCode;
+      } else if (streetAddress) {
+        // If we have street address but no city/state, try to extract from other patterns in the block
+        sale.streetAddress = streetAddress;
+        
+        // Look for city/state elsewhere in the block
+        const blockCityMatch = block.match(/([A-Z][a-z\s]+),?\s*(MI|Michigan)/i);
+        if (blockCityMatch) {
+          sale.city = blockCityMatch[1].trim();
+          sale.state = blockCityMatch[2];
+          sale.address = `${streetAddress}, ${sale.city}, ${sale.state}`;
+        } else {
+          sale.address = streetAddress; // At least we have the street
         }
+      } else if (city && state) {
+        // If we only have city/state, use that
+        sale.city = city;
+        sale.state = state;
+        sale.address = `${city}, ${state}`;
       }
+      
+      console.log('Final address extraction result:', {
+        fullAddress: sale.address,
+        streetAddress: sale.streetAddress,
+        city: sale.city,
+        state: sale.state,
+        zipCode: sale.zipCode
+      });
       
       // Extract distance
       const distanceMatch = block.match(/(\d+\s+miles?\s+away|Less than \d+ miles away|Nearby[^\\]*)/);
@@ -194,7 +246,7 @@ export class FirecrawlService {
       // Only add sales that have at least a title and are within 3 days
       if (sale.title && sale.title.length > 0 && this.isWithinThreeDays(sale.date)) {
         sales.push(sale);
-        console.log(`Parsed sale: "${sale.title}" at ${sale.address || sale.streetAddress}`);
+        console.log(`Parsed sale: "${sale.title}" at ${sale.address || sale.streetAddress || 'No address found'}`);
       }
     }
     
