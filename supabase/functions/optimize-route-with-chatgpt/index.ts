@@ -74,7 +74,14 @@ Important:
       throw new Error('ChatGPT returned invalid JSON');
     }
 
-    return new Response(JSON.stringify(optimizationResult), {
+    // Remove Google Maps URL for now, just return optimized order
+    const response = {
+      optimizedOrder: optimizationResult.optimizedOrder || [],
+      estimatedTime: optimizationResult.estimatedTime || 'Unknown',
+      estimatedDistance: optimizationResult.estimatedDistance || 'Unknown'
+    };
+
+    return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

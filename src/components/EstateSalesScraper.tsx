@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Loader2, Sparkles } from 'lucide-react';
 import { EstateSaleCard } from './EstateSaleCard';
-import { RouteMap } from './RouteMap';
+import { RouteOptimizer } from './RouteOptimizer';
 import { LocationInput } from './LocationInput';
 
 interface EstateSale {
@@ -131,7 +131,7 @@ export const EstateSalesScraper = () => {
   if (showRouteMap) {
     return (
       <div className="w-full max-w-4xl mx-auto p-8">
-        <RouteMap 
+        <RouteOptimizer 
           selectedSales={selectedSales} 
           onClose={() => setShowRouteMap(false)} 
         />
