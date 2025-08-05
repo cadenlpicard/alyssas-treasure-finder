@@ -44,49 +44,15 @@ serve(async (req) => {
       );
     }
 
-    // First, geocode the location to get lat/lng for location bias
-    const geocodeUrl = new URL('https://maps.googleapis.com/maps/api/geocode/json');
-    geocodeUrl.searchParams.append('address', location);
-    geocodeUrl.searchParams.append('key', googleApiKey);
-    
-    const geocodeResponse = await fetch(geocodeUrl.toString());
-    const geocodeData = await geocodeResponse.json();
-    
-    console.log(`Geocoding result for "${location}":`, JSON.stringify(geocodeData, null, 2));
-    
-    let locationBias = '';
-    let searchLocation = '';
-    if (geocodeData.status === 'OK' && geocodeData.results?.[0]?.geometry?.location) {
-      const { lat, lng } = geocodeData.results[0].geometry.location;
-      // Use circular location bias with the specified radius in meters
-      const radiusInMeters = radius * 1609.34;
-      locationBias = `circle:${radiusInMeters}@${lat},${lng}`;
-      searchLocation = `${lat},${lng}`;
-      console.log(`Using location: ${lat},${lng}, radius: ${radiusInMeters}m, bias: ${locationBias}`);
-    } else {
-      console.error('Geocoding failed:', geocodeData);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Could not geocode location: ${location}` 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Search for thrift stores with proper location bias and type filtering
+    // Search for thrift stores, secondhand stores, consignment shops, and specific chains
     const searchQueries = [
-      'thrift store',
-      'secondhand store', 
-      'consignment shop',
-      'vintage store',
-      'Goodwill',
-      'Salvation Army',
-      'charity shop',
-      'thrift shop'
+      `thrift stores near ${location}`,
+      `secondhand stores near ${location}`,
+      `consignment shops near ${location}`,
+      `vintage stores near ${location}`,
+      `Goodwill near ${location}`,
+      `Salvation Army near ${location}`,
+      `charity shops near ${location}`
     ];
 
     const allResults = [];
@@ -97,19 +63,8 @@ serve(async (req) => {
         const searchUrl = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
         searchUrl.searchParams.append('query', query);
         searchUrl.searchParams.append('key', googleApiKey);
-        
-        // Add location and radius constraints
-        if (searchLocation) {
-          searchUrl.searchParams.append('location', searchLocation);
-          searchUrl.searchParams.append('radius', (radius * 1609.34).toString());
-        }
-        
-        // Add location bias as backup
-        if (locationBias) {
-          searchUrl.searchParams.append('locationbias', locationBias);
-        }
-        
-        // No region bias - search globally based on location input
+        searchUrl.searchParams.append('radius', (radius * 1609.34).toString()); // Convert miles to meters
+        searchUrl.searchParams.append('type', 'store');
 
         console.log(`Searching with query: ${query}`);
 
@@ -129,10 +84,8 @@ serve(async (req) => {
               const detailsUrl = new URL('https://maps.googleapis.com/maps/api/place/details/json');
               detailsUrl.searchParams.append('place_id', place.place_id);
               detailsUrl.searchParams.append('key', googleApiKey);
-              detailsUrl.searchParams.append('fields', 'name,formatted_address,formatted_phone_number,website,rating,opening_hours,geometry,photos,types,place_id');
+              detailsUrl.searchParams.append('fields', 'name,formatted_address,formatted_phone_number,website,rating,opening_hours,geometry,photos,types');
 
-              console.log(`Fetching details for: ${place.name} at ${place.formatted_address || place.vicinity}`);
-              
               const detailsResponse = await fetch(detailsUrl.toString());
               const detailsData = await detailsResponse.json();
 
