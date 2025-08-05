@@ -255,36 +255,13 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3 flex-1">
-            {!hasValidAddress ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Checkbox
-                    checked={isSelected}
-                    disabled={!hasValidAddress}
-                    onCheckedChange={(checked) => {
-                      if (!hasValidAddress) {
-                        return; // Prevent selection if no valid address
-                      }
-                      onSelect?.(sale, !!checked);
-                    }}
-                    className={`mt-1 ${!hasValidAddress ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>No address available - cannot route</p>
-                </TooltipContent>
-              </Tooltip>
-            ) : (
+            {hasValidAddress && (
               <Checkbox
                 checked={isSelected}
-                disabled={!hasValidAddress}
                 onCheckedChange={(checked) => {
-                  if (!hasValidAddress) {
-                    return; // Prevent selection if no valid address
-                  }
                   onSelect?.(sale, !!checked);
                 }}
-                className={`mt-1 ${!hasValidAddress ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className="mt-1"
               />
             )}
             <div className="flex-1">
