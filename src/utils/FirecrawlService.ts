@@ -58,13 +58,28 @@ export class FirecrawlService {
       const successfulResults = data.results.filter((result: any) => result.success);
       
       console.log('Processing successful results:', successfulResults.length);
+      console.log('Full data response:', JSON.stringify(data, null, 2));
+      
       for (const result of successfulResults) {
-        console.log('Result data structure:', result.data);
+        console.log('Individual result structure:', JSON.stringify(result, null, 2));
+        
+        // Try different possible markdown locations
+        let markdown = '';
         if (result.data?.markdown) {
-          console.log('Adding markdown from result:', result.url);
-          combinedMarkdown += result.data.markdown + '\n\n';
+          markdown = result.data.markdown;
+        } else if (result.data?.content) {
+          markdown = result.data.content;
+        } else if (typeof result.data === 'string') {
+          markdown = result.data;
+        } else if (result.markdown) {
+          markdown = result.markdown;
+        }
+        
+        if (markdown) {
+          console.log(`Adding markdown from ${result.url}, length: ${markdown.length}`);
+          combinedMarkdown += markdown + '\n\n';
         } else {
-          console.log('No markdown found in result:', result.url, result.data);
+          console.log(`No markdown found for ${result.url}. Available keys:`, Object.keys(result.data || {}));
         }
       }
       
