@@ -109,8 +109,7 @@ serve(async (req) => {
           searchUrl.searchParams.append('locationbias', locationBias);
         }
         
-        // Add region bias to prefer results in the specified area
-        searchUrl.searchParams.append('region', 'us');
+        // No region bias - search globally based on location input
 
         console.log(`Searching with query: ${query}`);
 
