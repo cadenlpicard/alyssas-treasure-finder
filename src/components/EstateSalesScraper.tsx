@@ -213,10 +213,45 @@ export const EstateSalesScraper = () => {
       });
     });
 
-    // Then filter by radius if not set to "All distances"
-    const filteredData = radiusFilter === 999 ? deduplicatedData : deduplicatedData.filter((item: any) => {
-      const distance = parseDistance(item.distance);
-      return distance <= radiusFilter;
+    // Filter by radius and date
+    const filteredData = deduplicatedData.filter((item: any) => {
+      // Filter by radius if not set to "All distances"
+      if (radiusFilter !== 999) {
+        const distance = parseDistance(item.distance);
+        if (distance > radiusFilter) return false;
+      }
+      
+      // For estate sales, only show those in the next 5 days
+      if (item.type !== 'thrift_store' && item.date) {
+        const parseDate = (dateStr: string): Date => {
+          if (!dateStr || dateStr === 'Date TBD') return new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // Far future for TBD
+          
+          const currentYear = new Date().getFullYear();
+          const dateMatch = dateStr.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/i);
+          
+          if (dateMatch) {
+            const [, month, day] = dateMatch;
+            const monthMap: { [key: string]: number } = {
+              'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+              'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+            };
+            const monthIndex = monthMap[month.toLowerCase()];
+            const dayNum = parseInt(day);
+            return new Date(currentYear, monthIndex, dayNum);
+          }
+          
+          return new Date(); // Default to today if can't parse
+        };
+        
+        const saleDate = parseDate(item.date);
+        const today = new Date();
+        const fiveDaysFromNow = new Date(today.getTime() + (5 * 24 * 60 * 60 * 1000));
+        
+        // Only include if the sale is within the next 5 days
+        if (saleDate > fiveDaysFromNow) return false;
+      }
+      
+      return true;
     });
 
     // Sort the data based on selected sort option
@@ -358,7 +393,8 @@ export const EstateSalesScraper = () => {
               featured: item.featured || '',
               url: item.url || item.sourceURL || '',
               imageUrl: item.imageUrl || '',
-              description: item.description || ''
+              description: item.description || '',
+              type: item.type || 'estate_sale'
             }))}
             selectedSales={selectedSales.map(s => s.title || '')}
             onSaleSelection={(saleTitle, selected) => {
@@ -498,7 +534,7 @@ export const EstateSalesScraper = () => {
                 <div className="flex justify-between text-sm font-medium text-muted-foreground">
                   <span className="flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Finding estate sales...
+                    Searching...
                   </span>
                   <span>{progress}%</span>
                 </div>

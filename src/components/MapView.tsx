@@ -22,6 +22,7 @@ interface EstateSale {
   url: string;
   imageUrl: string;
   description: string;
+  type?: 'estate_sale' | 'thrift_store';
 }
 
 interface MapViewProps {
@@ -164,7 +165,12 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
       `;
 
       const iconEl = document.createElement('div');
-      iconEl.innerHTML = '💰';
+      // Use different icons for different types
+      if (sale.type === 'thrift_store') {
+        iconEl.innerHTML = '🏪'; // Store icon for thrift stores
+      } else {
+        iconEl.innerHTML = '💰'; // Treasure icon for estate sales
+      }
       iconEl.style.fontSize = '16px';
       markerEl.appendChild(iconEl);
 

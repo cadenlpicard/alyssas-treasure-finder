@@ -327,8 +327,8 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
             <div className="flex flex-col">
               <span className="text-foreground">{displayAddress}</span>
               
-              {/* Show warning badge for address issues */}
-              {(() => {
+              {/* Show warning badge for address issues - only for estate sales */}
+              {sale.type !== 'thrift_store' && (() => {
                 // Debug the address checking logic
                 console.log('Badge Logic Debug:', {
                   displayAddress,
