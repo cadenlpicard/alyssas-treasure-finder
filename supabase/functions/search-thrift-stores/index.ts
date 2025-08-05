@@ -52,12 +52,29 @@ serve(async (req) => {
     const geocodeResponse = await fetch(geocodeUrl.toString());
     const geocodeData = await geocodeResponse.json();
     
+    console.log(`Geocoding result for "${location}":`, JSON.stringify(geocodeData, null, 2));
+    
     let locationBias = '';
+    let searchLocation = '';
     if (geocodeData.status === 'OK' && geocodeData.results?.[0]?.geometry?.location) {
       const { lat, lng } = geocodeData.results[0].geometry.location;
-      // Use circular location bias with the specified radius
-      locationBias = `circle:${radius * 1609.34}@${lat},${lng}`;
-      console.log(`Using location bias: ${locationBias}`);
+      // Use circular location bias with the specified radius in meters
+      const radiusInMeters = radius * 1609.34;
+      locationBias = `circle:${radiusInMeters}@${lat},${lng}`;
+      searchLocation = `${lat},${lng}`;
+      console.log(`Using location: ${lat},${lng}, radius: ${radiusInMeters}m, bias: ${locationBias}`);
+    } else {
+      console.error('Geocoding failed:', geocodeData);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Could not geocode location: ${location}` 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Search for thrift stores with proper location bias and type filtering
@@ -81,7 +98,13 @@ serve(async (req) => {
         searchUrl.searchParams.append('query', query);
         searchUrl.searchParams.append('key', googleApiKey);
         
-        // Add location bias if we have coordinates
+        // Add location and radius constraints
+        if (searchLocation) {
+          searchUrl.searchParams.append('location', searchLocation);
+          searchUrl.searchParams.append('radius', (radius * 1609.34).toString());
+        }
+        
+        // Add location bias as backup
         if (locationBias) {
           searchUrl.searchParams.append('locationbias', locationBias);
         }
