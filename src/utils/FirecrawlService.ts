@@ -13,7 +13,7 @@ interface ScrapeResponse {
 type FirecrawlResponse = ScrapeResponse | ErrorResponse;
 
 export class FirecrawlService {
-  static async crawlWebsite(url: string): Promise<{ success: boolean; error?: string; data?: any }> {
+  static async crawlWebsite(url: string, filters?: { maxDays?: number; maxRadius?: number }): Promise<{ success: boolean; error?: string; data?: any }> {
     try {
       console.log('Making optimized scrape request via Supabase edge function for:', url);
       
@@ -85,8 +85,8 @@ export class FirecrawlService {
       
       console.log('Final combined markdown length:', combinedMarkdown.length);
       
-      // Parse estate sales from the combined markdown content
-      const parsedSales = this.parseEstateSales(combinedMarkdown);
+      // Parse estate sales from the combined markdown content with filters
+      const parsedSales = this.parseEstateSales(combinedMarkdown, filters);
       
       // Convert scrape response to match expected crawl format
       const formattedData = {
@@ -136,7 +136,7 @@ export class FirecrawlService {
     return variants; // Return only base URL and pagination variants
   }
 
-  static parseEstateSales(markdown: string): any[] {
+  static parseEstateSales(markdown: string, filters?: { maxDays?: number; maxRadius?: number }): any[] {
     console.log('Raw markdown content length:', markdown.length);
     console.log('First 1000 chars:', markdown.substring(0, 1000));
     const sales: any[] = [];
@@ -336,17 +336,34 @@ export class FirecrawlService {
       if (sale.status) descParts.push(sale.status);
       sale.description = descParts.join(' • ');
       
-      // Only add sales that have at least a title and are today or in the future
+      // Only add sales that have at least a title and meet filter criteria
       if (sale.title && sale.title.length > 0) {
-        // Check if sale is today or in the future
-        const isTodayOrFuture = this.isTodayOrLater(sale.date);
-        console.log(`Sale "${sale.title}" date: "${sale.date}" - today or future: ${isTodayOrFuture}`);
+        // Apply upfront filtering
+        let shouldInclude = true;
         
-        if (isTodayOrFuture) {
+        // Date filter - check if sale is within specified days (default: today or future)
+        const maxDays = filters?.maxDays || 0; // 0 means only today and future
+        const isWithinDateRange = maxDays === 0 
+          ? this.isTodayOrLater(sale.date)
+          : this.isWithinDays(sale.date, maxDays);
+        
+        if (!isWithinDateRange) {
+          console.log(`❌ Filtered out sale: "${sale.title}" - outside date range (${maxDays} days)`);
+          shouldInclude = false;
+        }
+        
+        // Distance filter - check if sale is within specified radius
+        if (shouldInclude && filters?.maxRadius && filters.maxRadius !== 999) {
+          const distance = this.parseDistanceFromText(sale.distance);
+          if (distance > filters.maxRadius) {
+            console.log(`❌ Filtered out sale: "${sale.title}" - too far (${distance} > ${filters.maxRadius} miles)`);
+            shouldInclude = false;
+          }
+        }
+        
+        if (shouldInclude) {
           sales.push(sale);
           console.log(`✅ Added sale: "${sale.title}" at ${sale.address || sale.streetAddress || 'No address found'}`);
-        } else {
-          console.log(`❌ Filtered out sale: "${sale.title}" - past date`);
         }
       } else {
         console.log(`❌ Skipped sale block - no title found`);
@@ -356,6 +373,50 @@ export class FirecrawlService {
     console.log(`Successfully parsed ${sales.length} estate sales`);
     
     return sales;
+  }
+
+  // Helper method to parse distance from text string
+  static parseDistanceFromText(distanceText?: string): number {
+    if (!distanceText) return 999;
+    
+    const lowerText = distanceText.toLowerCase();
+    
+    // Handle "Less than X miles" or "Nearby" cases
+    if (lowerText.includes('less than') || lowerText.includes('nearby')) {
+      const match = lowerText.match(/less than (\d+)/);
+      return match ? parseInt(match[1]) : 2; // Default nearby to 2 miles
+    }
+    
+    // Handle "X miles away" format
+    const match = lowerText.match(/(\d+)\s+miles?\s+away/);
+    return match ? parseInt(match[1]) : 999;
+  }
+
+  // Helper method to check if a sale date is within specified number of days
+  static isWithinDays(dateString: string, maxDays: number): boolean {
+    if (!dateString || dateString === 'Date TBD') {
+      return true; // Include sales without specific dates
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const maxDate = new Date(today);
+    maxDate.setDate(today.getDate() + maxDays);
+
+    try {
+      const currentYear = today.getFullYear();
+      const dateToCheck = this.parseSaleDate(dateString, currentYear);
+      
+      if (!dateToCheck) {
+        return true; // If we can't parse it, include it
+      }
+
+      return dateToCheck >= today && dateToCheck <= maxDate;
+    } catch (error) {
+      console.warn('Error parsing date:', dateString, error);
+      return true; // If error parsing, include the sale
+    }
   }
 
   static async searchThriftStores(locationUrl: string, radiusFilter: number): Promise<{ success: boolean; error?: string; data?: any }> {
