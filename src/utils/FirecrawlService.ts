@@ -325,82 +325,16 @@ export class FirecrawlService {
       if (sale.status) descParts.push(sale.status);
       sale.description = descParts.join(' • ');
       
-      // Only add sales that have at least a title and are within reasonable timeframe
+      // Only add sales that have at least a title
       if (sale.title && sale.title.length > 0) {
-        // Check if sale is within timeframe
-        const isWithinTimeframe = this.isWithinThreeDays(sale.date);
-        console.log(`Sale "${sale.title}" date: "${sale.date}" - within 3 days: ${isWithinTimeframe}`);
-        
-        if (isWithinTimeframe) {
-          sales.push(sale);
-          console.log(`✅ Added sale: "${sale.title}" at ${sale.address || sale.streetAddress || 'No address found'}`);
-        } else {
-          console.log(`❌ Filtered out sale: "${sale.title}" - outside 3-day window`);
-        }
+        sales.push(sale);
+        console.log(`✅ Added sale: "${sale.title}" at ${sale.address || sale.streetAddress || 'No address found'}`);
       } else {
         console.log(`❌ Skipped sale block - no title found`);
       }
     }
     
-    console.log(`Successfully parsed ${sales.length} estate sales (filtered for within 3 days)`);
-    
-    // If no sales within 3 days, let's be more lenient and include sales within 7 days
-    if (sales.length === 0) {
-      console.log('No sales within 3 days, expanding to 7-day window...');
-      
-      // Reprocess with 7-day window
-      for (let i = 1; i < saleBlocks.length; i++) {
-        const block = saleBlocks[i];
-        
-        if (!block.includes('estatesales.net') || !block.includes('**')) {
-          continue;
-        }
-        
-        const sale: any = {};
-        
-        // Extract basic info (reusing same extraction logic)
-        const imageMatch = block.match(/\[!\[.*?\]\((https:\/\/[^)]+\.(?:jpg|jpeg|png|gif|webp))/i);
-        if (imageMatch) sale.imageUrl = imageMatch[1];
-        
-        const titleMatch = block.match(/\*\*(.*?)\*\*/);
-        if (titleMatch) sale.title = titleMatch[1].trim().replace(/\\\\/g, '');
-        
-        const companyMatch = block.match(/Listed by ([^\\]+)/);
-        if (companyMatch) {
-          sale.company = companyMatch[1].trim();
-        } else if (block.includes('Privately Listed Sale')) {
-          sale.company = 'Privately Listed Sale';
-        }
-        
-        // Address extraction
-        const urlMatch = block.match(/\]\((https:\/\/www\.estatesales\.net\/([A-Z]{2})\/([^\/]+)\/(\d{5})?[^)]*)\)/);
-        if (urlMatch) {
-          const [, fullUrl, state, cityFromUrl, zipCode] = urlMatch;
-          const city = cityFromUrl.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          
-          sale.state = state;
-          sale.city = city;
-          sale.zipCode = zipCode || '';
-          sale.address = `${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
-          sale.url = fullUrl;
-        }
-        
-        // Extract dates and other info
-        const dateMatch = block.match(/((?:Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr|May|Jun)\s+\d+(?:,\s+\d+)?(?:,\s*(?:Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr|May|Jun)\s+\d+)*)/);
-        if (dateMatch) sale.date = dateMatch[1].trim();
-        
-        const distanceMatch = block.match(/(\d+\s+miles?\s+away|Less than \d+ miles away|Nearby[^\\]*)/);
-        if (distanceMatch) sale.distance = distanceMatch[1].trim();
-        
-        sale.markdown = block;
-        sale.description = 'Estate sale - contact organizer for details.';
-        
-        if (sale.title && sale.title.length > 0 && this.isWithinSevenDays(sale.date)) {
-          sales.push(sale);
-          console.log(`✅ Added sale (7-day window): "${sale.title}"`);
-        }
-      }
-    }
+    console.log(`Successfully parsed ${sales.length} estate sales`);
     
     return sales;
   }

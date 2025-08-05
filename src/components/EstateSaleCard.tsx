@@ -271,7 +271,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
                   />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>No address available cannot route</p>
+                  <p>No address available - cannot route</p>
                 </TooltipContent>
               </Tooltip>
             ) : (
