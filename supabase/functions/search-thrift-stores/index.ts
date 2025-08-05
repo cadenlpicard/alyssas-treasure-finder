@@ -95,6 +95,8 @@ serve(async (req) => {
               detailsUrl.searchParams.append('key', googleApiKey);
               detailsUrl.searchParams.append('fields', 'name,formatted_address,formatted_phone_number,website,rating,opening_hours,geometry,photos,types,place_id');
 
+              console.log(`Fetching details for: ${place.name} at ${place.formatted_address || place.vicinity}`);
+              
               const detailsResponse = await fetch(detailsUrl.toString());
               const detailsData = await detailsResponse.json();
 
