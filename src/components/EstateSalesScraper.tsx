@@ -4,11 +4,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FirecrawlService } from '@/utils/FirecrawlService';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Loader2, Sparkles, List, ArrowUpDown } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Loader2, Sparkles, List, ArrowUpDown, Store } from 'lucide-react';
 import { EstateSaleCard } from './EstateSaleCard';
 import { MapView } from './MapView';
 import { RouteOptimizationDialog } from './RouteOptimizationDialog';
@@ -31,6 +32,10 @@ interface EstateSale {
   streetAddress?: string;
   uniqueId?: string;
   imageUrl?: string;
+  type?: 'estate_sale' | 'thrift_store';
+  businessHours?: string;
+  phone?: string;
+  rating?: number;
 }
 
 interface CrawlResult {
@@ -54,6 +59,7 @@ export const EstateSalesScraper = () => {
   const [showRouteDialog, setShowRouteDialog] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [sortBy, setSortBy] = useState<'date' | 'distance'>('date');
+  const [includeThriftStores, setIncludeThriftStores] = useState(false);
 
   // Helper function to parse distance from text
   const parseDistance = (distanceText?: string): number => {
@@ -120,22 +126,49 @@ export const EstateSalesScraper = () => {
         setProgress(prev => Math.min(prev + 10, 90));
       }, 500);
 
-      const result = await FirecrawlService.crawlWebsite(url);
+      // First get estate sales
+      const estateSalesResult = await FirecrawlService.crawlWebsite(url);
+      
+      let allResults = [];
+      
+      if (estateSalesResult.success) {
+        allResults = [...(estateSalesResult.data?.data || [])];
+      }
+      
+      // If thrift stores are requested, search for those too
+      if (includeThriftStores) {
+        try {
+          const thriftStoresResult = await FirecrawlService.searchThriftStores(url, radiusFilter);
+          if (thriftStoresResult.success && thriftStoresResult.data) {
+            allResults = [...allResults, ...thriftStoresResult.data];
+          }
+        } catch (error) {
+          console.error('Error searching thrift stores:', error);
+          // Continue with just estate sales
+        }
+      }
       
       clearInterval(progressInterval);
       setProgress(100);
       
-      if (result.success) {
+      if (allResults.length > 0) {
         toast({
           title: "Success",
-          description: "Estate sales data scraped successfully!",
+          description: `Found ${allResults.length} ${includeThriftStores ? 'estate sales and thrift stores' : 'estate sales'}!`,
           duration: 3000,
         });
-        setCrawlResult(result.data);
+        setCrawlResult({
+          success: true,
+          status: 'completed',
+          completed: allResults.length,
+          total: allResults.length,
+          creditsUsed: 1,
+          data: allResults
+        });
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to scrape estate sales data",
+          description: estateSalesResult.error || "Failed to find any results",
           variant: "destructive",
           duration: 3000,
         });
@@ -227,7 +260,27 @@ export const EstateSalesScraper = () => {
           <div className="flex items-center gap-4">
             <h4 className="font-semibold text-foreground flex items-center gap-2">
               <Grid className="w-5 h-5 text-vintage-gold" />
-              Found Estate Sales ({sortedData.length})
+              Found Results ({sortedData.length})
+              <div className="flex gap-1 ml-2">
+                {(() => {
+                  const estateSales = sortedData.filter((item: any) => item.type !== 'thrift_store').length;
+                  const thriftStores = sortedData.filter((item: any) => item.type === 'thrift_store').length;
+                  return (
+                    <>
+                      {estateSales > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {estateSales} Estate Sales
+                        </Badge>
+                      )}
+                      {thriftStores > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {thriftStores} Thrift Stores
+                        </Badge>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             </h4>
             {radiusFilter !== 999 && sortedData.length !== deduplicatedData.length && (
               <Badge variant="outline" className="text-xs">
@@ -348,9 +401,13 @@ export const EstateSalesScraper = () => {
                 city: item.city,
                 state: item.state,
                 zipCode: item.zipCode,
-                streetAddress: item.streetAddress,
-                uniqueId: uniqueId,
-                imageUrl: item.imageUrl
+                  streetAddress: item.streetAddress,
+                  uniqueId: uniqueId,
+                  imageUrl: item.imageUrl,
+                  type: item.type || 'estate_sale',
+                  businessHours: item.businessHours,
+                  phone: item.phone,
+                  rating: item.rating
               };
               
               const isSelected = selectedSales.some(s => {
@@ -419,6 +476,21 @@ export const EstateSalesScraper = () => {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            
+            <div className="flex items-center space-x-2 bg-muted/30 rounded-lg p-4">
+              <Checkbox 
+                id="include-thrift-stores"
+                checked={includeThriftStores}
+                onCheckedChange={(checked) => setIncludeThriftStores(!!checked)}
+              />
+              <label 
+                htmlFor="include-thrift-stores" 
+                className="text-lg font-medium text-foreground flex items-center gap-3 cursor-pointer"
+              >
+                <Store className="w-5 h-5 text-primary" />
+                Include thrift stores in search
+              </label>
             </div>
             
             {isLoading && (

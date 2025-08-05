@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MapPin, Calendar, Clock, ExternalLink, Tag, CheckCircle } from 'lucide-react';
+import { MapPin, Calendar, Clock, ExternalLink, Tag, CheckCircle, Store, Star, Phone } from 'lucide-react';
 
 interface EstateSale {
   title?: string;
@@ -21,6 +21,10 @@ interface EstateSale {
   streetAddress?: string;
   uniqueId?: string;
   imageUrl?: string;
+  type?: 'estate_sale' | 'thrift_store';
+  businessHours?: string;
+  phone?: string;
+  rating?: number;
 }
 
 interface EstateSaleCardProps {
@@ -213,7 +217,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
   const hasValidAddress = displayAddress && 
     displayAddress !== 'Address TBD' && 
     displayAddress.trim() !== '' &&
-    /\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)/i.test(displayAddress);
+    (sale.type === 'thrift_store' || /\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)/i.test(displayAddress));
 
   // Debug logging for address issues
   console.log('Estate Sale Debug:', {
@@ -287,10 +291,36 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
       
       <CardContent className="space-y-3">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar className="w-4 h-4 text-estate-red flex-shrink-0" />
-            <span className="text-foreground">{displayDate}</span>
-          </div>
+          {sale.type !== 'thrift_store' && (
+            <div className="flex items-center gap-2 text-sm">
+              <Calendar className="w-4 h-4 text-estate-red flex-shrink-0" />
+              <span className="text-foreground">{displayDate}</span>
+            </div>
+          )}
+          
+          {sale.type === 'thrift_store' && sale.businessHours && (
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="w-4 h-4 text-treasure-green flex-shrink-0" />
+              <span className="text-foreground text-xs">
+                {sale.businessHours.split(',').slice(0, 2).join(', ')}
+                {sale.businessHours.split(',').length > 2 && '...'}
+              </span>
+            </div>
+          )}
+          
+          {sale.type === 'thrift_store' && sale.rating && sale.rating > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <Star className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+              <span className="text-foreground">{sale.rating}/5 rating</span>
+            </div>
+          )}
+          
+          {sale.type === 'thrift_store' && sale.phone && (
+            <div className="flex items-center gap-2 text-sm">
+              <Phone className="w-4 h-4 text-blue-500 flex-shrink-0" />
+              <span className="text-foreground">{sale.phone}</span>
+            </div>
+          )}
           
           <div className="flex items-center gap-2 text-sm">
             <MapPin className="w-4 h-4 text-treasure-green flex-shrink-0" />
@@ -350,8 +380,17 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
         <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-1">
             <Badge variant="secondary" className="text-xs">
-              <Tag className="w-3 h-3 mr-1" />
-              Estate Sale
+              {sale.type === 'thrift_store' ? (
+                <>
+                  <Store className="w-3 h-3 mr-1" />
+                  Thrift Store
+                </>
+              ) : (
+                <>
+                  <Tag className="w-3 h-3 mr-1" />
+                  Estate Sale
+                </>
+              )}
             </Badge>
           </div>
           

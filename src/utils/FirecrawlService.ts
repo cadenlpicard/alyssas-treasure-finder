@@ -358,6 +358,82 @@ export class FirecrawlService {
     return sales;
   }
 
+  static async searchThriftStores(locationUrl: string, radiusFilter: number): Promise<{ success: boolean; error?: string; data?: any }> {
+    try {
+      console.log('Searching for thrift stores near:', locationUrl);
+      
+      // Extract city and state from the URL or location string
+      let location = '';
+      if (locationUrl.includes('estatesales.net')) {
+        // Extract from estate sales URL format
+        const urlMatch = locationUrl.match(/\/([A-Z]{2})\/([^\/]+)/);
+        if (urlMatch) {
+          const [, state, cityFromUrl] = urlMatch;
+          const city = cityFromUrl.replace(/-/g, ' ');
+          location = `${city}, ${state}`;
+        }
+      } else {
+        // Assume it's already a location string
+        location = locationUrl;
+      }
+
+      if (!location) {
+        return { success: false, error: 'Unable to extract location for thrift store search' };
+      }
+
+      const { data, error } = await supabase.functions.invoke('search-thrift-stores', {
+        body: { 
+          location: location,
+          radius: radiusFilter === 999 ? 25 : radiusFilter // Convert "All distances" to reasonable default
+        }
+      });
+
+      if (error) {
+        console.error('Thrift store search error:', error);
+        return { 
+          success: false, 
+          error: error.message || 'Failed to search thrift stores' 
+        };
+      }
+
+      if (!data.success) {
+        return { 
+          success: false, 
+          error: data.error || 'Failed to find thrift stores' 
+        };
+      }
+
+      // Convert Google Places results to our format
+      const thriftStores = data.results.map((place: any) => ({
+        title: place.name,
+        address: place.formatted_address || place.vicinity,
+        description: `${place.types?.join(', ') || 'Thrift store'} • Rating: ${place.rating || 'No rating'}/5`,
+        url: place.website || `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
+        company: 'Thrift Store',
+        type: 'thrift_store',
+        businessHours: place.opening_hours?.weekday_text?.join(', ') || 'Hours not available',
+        phone: place.formatted_phone_number || '',
+        rating: place.rating || 0,
+        distance: place.distance ? `${place.distance.toFixed(1)} miles away` : '',
+        uniqueId: `thrift-${place.place_id}`,
+        imageUrl: place.photos?.[0]?.getUrl?.() || ''
+      }));
+
+      console.log(`Found ${thriftStores.length} thrift stores`);
+      
+      return { 
+        success: true,
+        data: thriftStores
+      };
+    } catch (error) {
+      console.error('Error searching thrift stores:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to search thrift stores' 
+      };
+    }
+  }
+
   // Helper method to check if a sale date is within 3 days from today
   static isWithinThreeDays(dateString: string): boolean {
     if (!dateString || dateString === 'Date TBD') {
