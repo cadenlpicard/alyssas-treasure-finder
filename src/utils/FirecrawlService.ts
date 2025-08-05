@@ -120,7 +120,8 @@ export class FirecrawlService {
   }
 
   static parseEstateSales(markdown: string): any[] {
-    console.log('Raw markdown content:', markdown.substring(0, 500));
+    console.log('Raw markdown content length:', markdown.length);
+    console.log('First 1000 chars:', markdown.substring(0, 1000));
     const sales: any[] = [];
     
     // Split by image patterns - each estate sale starts with [![
@@ -299,14 +300,83 @@ export class FirecrawlService {
       if (sale.status) descParts.push(sale.status);
       sale.description = descParts.join(' • ');
       
-      // Only add sales that have at least a title and are within 3 days
-      if (sale.title && sale.title.length > 0 && this.isWithinThreeDays(sale.date)) {
-        sales.push(sale);
-        console.log(`Parsed sale: "${sale.title}" at ${sale.address || sale.streetAddress || 'No address found'}`);
+      // Only add sales that have at least a title and are within reasonable timeframe
+      if (sale.title && sale.title.length > 0) {
+        // Check if sale is within timeframe
+        const isWithinTimeframe = this.isWithinThreeDays(sale.date);
+        console.log(`Sale "${sale.title}" date: "${sale.date}" - within 3 days: ${isWithinTimeframe}`);
+        
+        if (isWithinTimeframe) {
+          sales.push(sale);
+          console.log(`✅ Added sale: "${sale.title}" at ${sale.address || sale.streetAddress || 'No address found'}`);
+        } else {
+          console.log(`❌ Filtered out sale: "${sale.title}" - outside 3-day window`);
+        }
+      } else {
+        console.log(`❌ Skipped sale block - no title found`);
       }
     }
     
     console.log(`Successfully parsed ${sales.length} estate sales (filtered for within 3 days)`);
+    
+    // If no sales within 3 days, let's be more lenient and include sales within 7 days
+    if (sales.length === 0) {
+      console.log('No sales within 3 days, expanding to 7-day window...');
+      
+      // Reprocess with 7-day window
+      for (let i = 1; i < saleBlocks.length; i++) {
+        const block = saleBlocks[i];
+        
+        if (!block.includes('estatesales.net') || !block.includes('**')) {
+          continue;
+        }
+        
+        const sale: any = {};
+        
+        // Extract basic info (reusing same extraction logic)
+        const imageMatch = block.match(/\[!\[.*?\]\((https:\/\/[^)]+\.(?:jpg|jpeg|png|gif|webp))/i);
+        if (imageMatch) sale.imageUrl = imageMatch[1];
+        
+        const titleMatch = block.match(/\*\*(.*?)\*\*/);
+        if (titleMatch) sale.title = titleMatch[1].trim().replace(/\\\\/g, '');
+        
+        const companyMatch = block.match(/Listed by ([^\\]+)/);
+        if (companyMatch) {
+          sale.company = companyMatch[1].trim();
+        } else if (block.includes('Privately Listed Sale')) {
+          sale.company = 'Privately Listed Sale';
+        }
+        
+        // Address extraction
+        const urlMatch = block.match(/\]\((https:\/\/www\.estatesales\.net\/([A-Z]{2})\/([^\/]+)\/(\d{5})?[^)]*)\)/);
+        if (urlMatch) {
+          const [, fullUrl, state, cityFromUrl, zipCode] = urlMatch;
+          const city = cityFromUrl.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          
+          sale.state = state;
+          sale.city = city;
+          sale.zipCode = zipCode || '';
+          sale.address = `${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
+          sale.url = fullUrl;
+        }
+        
+        // Extract dates and other info
+        const dateMatch = block.match(/((?:Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr|May|Jun)\s+\d+(?:,\s+\d+)?(?:,\s*(?:Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr|May|Jun)\s+\d+)*)/);
+        if (dateMatch) sale.date = dateMatch[1].trim();
+        
+        const distanceMatch = block.match(/(\d+\s+miles?\s+away|Less than \d+ miles away|Nearby[^\\]*)/);
+        if (distanceMatch) sale.distance = distanceMatch[1].trim();
+        
+        sale.markdown = block;
+        sale.description = 'Estate sale - contact organizer for details.';
+        
+        if (sale.title && sale.title.length > 0 && this.isWithinSevenDays(sale.date)) {
+          sales.push(sale);
+          console.log(`✅ Added sale (7-day window): "${sale.title}"`);
+        }
+      }
+    }
+    
     return sales;
   }
 
@@ -365,6 +435,33 @@ export class FirecrawlService {
       }
 
       return dateToCheck >= today;
+    } catch (error) {
+      console.warn('Error parsing date:', dateString, error);
+      return true; // If error parsing, include the sale
+    }
+  }
+
+  // Helper method to check if a sale date is within 7 days from today
+  static isWithinSevenDays(dateString: string): boolean {
+    if (!dateString || dateString === 'Date TBD') {
+      return true; // Include sales without specific dates
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const sevenDaysFromNow = new Date(today);
+    sevenDaysFromNow.setDate(today.getDate() + 7);
+
+    try {
+      const currentYear = today.getFullYear();
+      const dateToCheck = this.parseSaleDate(dateString, currentYear);
+      
+      if (!dateToCheck) {
+        return true; // If we can't parse it, include it
+      }
+
+      return dateToCheck >= today && dateToCheck <= sevenDaysFromNow;
     } catch (error) {
       console.warn('Error parsing date:', dateString, error);
       return true; // If error parsing, include the sale
