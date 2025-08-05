@@ -15,15 +15,11 @@ type FirecrawlResponse = ScrapeResponse | ErrorResponse;
 export class FirecrawlService {
   static async crawlWebsite(url: string, filters?: { maxDays?: number; maxRadius?: number }): Promise<{ success: boolean; error?: string; data?: any }> {
     try {
-      console.log('Making optimized scrape request via Supabase edge function for:', url);
+      console.log('Making scrape request via Supabase edge function for:', url);
       
-      // Generate multiple URL variants for better coverage and parallel processing
-      const urlVariants = this.generateUrlVariants(url);
-      console.log('Generated URL variants:', urlVariants);
-      
-      // Use batch scraping for better performance
-      const { data, error } = await supabase.functions.invoke('firecrawl-scrape-batch', {
-        body: { urls: urlVariants }
+      // Use single URL scraping to avoid pulling related URLs
+      const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
+        body: { url: url }
       });
 
       if (error) {
@@ -44,49 +40,29 @@ export class FirecrawlService {
       }
 
       if (!data.success) {
-        console.error('Batch scrape failed:', data.error);
+        console.error('Scrape failed:', data.error);
         return { 
           success: false, 
           error: data.error || 'Failed to scrape website' 
         };
       }
 
-      console.log(`Batch scrape successful: ${data.successCount}/${data.totalProcessed} URLs processed`);
+      console.log('Scrape successful');
       
-      // Combine markdown from all successful results
-      let combinedMarkdown = '';
-      const successfulResults = data.results.filter((result: any) => result.success);
-      
-      console.log('Processing successful results:', successfulResults.length);
-      console.log('Full data response:', JSON.stringify(data, null, 2));
-      
-      for (const result of successfulResults) {
-        console.log('Individual result structure:', JSON.stringify(result, null, 2));
-        
-        // Try different possible markdown locations
-        let markdown = '';
-        if (result.data?.markdown) {
-          markdown = result.data.markdown;
-        } else if (result.data?.content) {
-          markdown = result.data.content;
-        } else if (typeof result.data === 'string') {
-          markdown = result.data;
-        } else if (result.markdown) {
-          markdown = result.markdown;
-        }
-        
-        if (markdown) {
-          console.log(`Adding markdown from ${result.url}, length: ${markdown.length}`);
-          combinedMarkdown += markdown + '\n\n';
-        } else {
-          console.log(`No markdown found for ${result.url}. Available keys:`, Object.keys(result.data || {}));
-        }
+      // Extract markdown from single result
+      let markdown = '';
+      if (data.data?.markdown) {
+        markdown = data.data.markdown;
+      } else if (data.data?.content) {
+        markdown = data.data.content;
+      } else if (typeof data.data === 'string') {
+        markdown = data.data;
       }
       
-      console.log('Final combined markdown length:', combinedMarkdown.length);
+      console.log('Extracted markdown length:', markdown.length);
       
-      // Parse estate sales from the combined markdown content with filters
-      const parsedSales = this.parseEstateSales(combinedMarkdown, filters);
+      // Parse estate sales from the markdown content with filters
+      const parsedSales = this.parseEstateSales(markdown, filters);
       
       // Convert scrape response to match expected crawl format
       const formattedData = {
