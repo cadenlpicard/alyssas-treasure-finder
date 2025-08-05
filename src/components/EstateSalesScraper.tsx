@@ -126,11 +126,8 @@ export const EstateSalesScraper = () => {
         setProgress(prev => Math.min(prev + 10, 90));
       }, 500);
 
-      // First get estate sales with upfront filtering
-      const estateSalesResult = await FirecrawlService.crawlWebsite(url, {
-        maxDays: 5, // Only get sales within next 5 days
-        maxRadius: radiusFilter === 999 ? undefined : radiusFilter // Apply radius filter
-      });
+      // First get estate sales
+      const estateSalesResult = await FirecrawlService.crawlWebsite(url);
       
       let allResults = [];
       

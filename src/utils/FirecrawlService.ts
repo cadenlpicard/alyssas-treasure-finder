@@ -13,39 +13,17 @@ interface ScrapeResponse {
 type FirecrawlResponse = ScrapeResponse | ErrorResponse;
 
 export class FirecrawlService {
-  static async crawlWebsite(url: string, filters?: { maxDays?: number; maxRadius?: number }): Promise<{ success: boolean; error?: string; data?: any }> {
+  static async crawlWebsite(url: string): Promise<{ success: boolean; error?: string; data?: any }> {
     try {
-      console.log('Starting intelligent URL analysis for:', url);
+      console.log('Making optimized scrape request via Supabase edge function for:', url);
       
-      // First, use ChatGPT to analyze the URL and generate optimal variants
-      const { data: analysisData, error: analysisError } = await supabase.functions.invoke('analyze-url-variants', {
-        body: { url }
-      });
-
-      if (analysisError) {
-        console.warn('URL analysis failed, falling back to single URL:', analysisError);
-        // Fallback to single URL if analysis fails
-        return this.scrapeSingleUrl(url, filters);
-      }
-
-      if (!analysisData.success) {
-        console.warn('URL analysis unsuccessful, falling back to single URL:', analysisData.error);
-        return this.scrapeSingleUrl(url, filters);
-      }
-
-      console.log('ChatGPT Analysis:', analysisData.analysis);
-      const variants = analysisData.analysis.recommendedVariants || [url];
+      // Generate multiple URL variants for better coverage and parallel processing
+      const urlVariants = this.generateUrlVariants(url);
+      console.log('Generated URL variants:', urlVariants);
       
-      // If ChatGPT recommends no variants or only the original URL, use single scraping
-      if (variants.length <= 1) {
-        console.log('Using single URL scraping based on analysis');
-        return this.scrapeSingleUrl(url, filters);
-      }
-
-      // Use batch scraping for multiple variants
-      console.log('Using batch scraping for variants:', variants);
+      // Use batch scraping for better performance
       const { data, error } = await supabase.functions.invoke('firecrawl-scrape-batch', {
-        body: { urls: variants }
+        body: { urls: urlVariants }
       });
 
       if (error) {
@@ -79,7 +57,13 @@ export class FirecrawlService {
       let combinedMarkdown = '';
       const successfulResults = data.results.filter((result: any) => result.success);
       
+      console.log('Processing successful results:', successfulResults.length);
+      console.log('Full data response:', JSON.stringify(data, null, 2));
+      
       for (const result of successfulResults) {
+        console.log('Individual result structure:', JSON.stringify(result, null, 2));
+        
+        // Try different possible markdown locations
         let markdown = '';
         if (result.data?.markdown) {
           markdown = result.data.markdown;
@@ -87,17 +71,22 @@ export class FirecrawlService {
           markdown = result.data.content;
         } else if (typeof result.data === 'string') {
           markdown = result.data;
+        } else if (result.markdown) {
+          markdown = result.markdown;
         }
         
         if (markdown) {
+          console.log(`Adding markdown from ${result.url}, length: ${markdown.length}`);
           combinedMarkdown += markdown + '\n\n';
+        } else {
+          console.log(`No markdown found for ${result.url}. Available keys:`, Object.keys(result.data || {}));
         }
       }
       
       console.log('Final combined markdown length:', combinedMarkdown.length);
       
-      // Parse estate sales from the combined markdown content with filters
-      const parsedSales = this.parseEstateSales(combinedMarkdown, filters);
+      // Parse estate sales from the combined markdown content
+      const parsedSales = this.parseEstateSales(combinedMarkdown);
       
       // Convert scrape response to match expected crawl format
       const formattedData = {
@@ -134,68 +123,6 @@ export class FirecrawlService {
     }
   }
 
-  // Helper method for single URL scraping (fallback)
-  static async scrapeSingleUrl(url: string, filters?: { maxDays?: number; maxRadius?: number }): Promise<{ success: boolean; error?: string; data?: any }> {
-    try {
-      console.log('Making single URL scrape request for:', url);
-      
-      const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
-        body: { url }
-      });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        return { 
-          success: false, 
-          error: error.message || 'Failed to call scraping service' 
-        };
-      }
-
-      if (!data.success) {
-        console.error('Scrape failed:', data.error);
-        return { 
-          success: false, 
-          error: data.error || 'Failed to scrape website' 
-        };
-      }
-
-      // Extract markdown from single result
-      let markdown = '';
-      if (data.data?.markdown) {
-        markdown = data.data.markdown;
-      } else if (data.data?.content) {
-        markdown = data.data.content;
-      } else if (typeof data.data === 'string') {
-        markdown = data.data;
-      }
-      
-      // Parse estate sales from the markdown content with filters
-      const parsedSales = this.parseEstateSales(markdown, filters);
-      
-      // Convert scrape response to match expected crawl format
-      const formattedData = {
-        success: true,
-        status: 'completed',
-        completed: parsedSales.length,
-        total: parsedSales.length,
-        creditsUsed: 1,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        data: parsedSales
-      };
-      
-      return { 
-        success: true,
-        data: formattedData
-      };
-    } catch (error) {
-      console.error('Error during single URL scrape:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to scrape website'
-      };
-    }
-  }
-
   // Generate multiple URL variants for better coverage and parallel scraping
   static generateUrlVariants(baseUrl: string): string[] {
     const variants = [baseUrl];
@@ -209,7 +136,7 @@ export class FirecrawlService {
     return variants; // Return only base URL and pagination variants
   }
 
-  static parseEstateSales(markdown: string, filters?: { maxDays?: number; maxRadius?: number }): any[] {
+  static parseEstateSales(markdown: string): any[] {
     console.log('Raw markdown content length:', markdown.length);
     console.log('First 1000 chars:', markdown.substring(0, 1000));
     const sales: any[] = [];
@@ -409,34 +336,17 @@ export class FirecrawlService {
       if (sale.status) descParts.push(sale.status);
       sale.description = descParts.join(' • ');
       
-      // Only add sales that have at least a title and meet filter criteria
+      // Only add sales that have at least a title and are today or in the future
       if (sale.title && sale.title.length > 0) {
-        // Apply upfront filtering
-        let shouldInclude = true;
+        // Check if sale is today or in the future
+        const isTodayOrFuture = this.isTodayOrLater(sale.date);
+        console.log(`Sale "${sale.title}" date: "${sale.date}" - today or future: ${isTodayOrFuture}`);
         
-        // Date filter - check if sale is within specified days (default: today or future)
-        const maxDays = filters?.maxDays || 0; // 0 means only today and future
-        const isWithinDateRange = maxDays === 0 
-          ? this.isTodayOrLater(sale.date)
-          : this.isWithinDays(sale.date, maxDays);
-        
-        if (!isWithinDateRange) {
-          console.log(`❌ Filtered out sale: "${sale.title}" - outside date range (${maxDays} days)`);
-          shouldInclude = false;
-        }
-        
-        // Distance filter - check if sale is within specified radius
-        if (shouldInclude && filters?.maxRadius && filters.maxRadius !== 999) {
-          const distance = this.parseDistanceFromText(sale.distance);
-          if (distance > filters.maxRadius) {
-            console.log(`❌ Filtered out sale: "${sale.title}" - too far (${distance} > ${filters.maxRadius} miles)`);
-            shouldInclude = false;
-          }
-        }
-        
-        if (shouldInclude) {
+        if (isTodayOrFuture) {
           sales.push(sale);
           console.log(`✅ Added sale: "${sale.title}" at ${sale.address || sale.streetAddress || 'No address found'}`);
+        } else {
+          console.log(`❌ Filtered out sale: "${sale.title}" - past date`);
         }
       } else {
         console.log(`❌ Skipped sale block - no title found`);
@@ -446,50 +356,6 @@ export class FirecrawlService {
     console.log(`Successfully parsed ${sales.length} estate sales`);
     
     return sales;
-  }
-
-  // Helper method to parse distance from text string
-  static parseDistanceFromText(distanceText?: string): number {
-    if (!distanceText) return 999;
-    
-    const lowerText = distanceText.toLowerCase();
-    
-    // Handle "Less than X miles" or "Nearby" cases
-    if (lowerText.includes('less than') || lowerText.includes('nearby')) {
-      const match = lowerText.match(/less than (\d+)/);
-      return match ? parseInt(match[1]) : 2; // Default nearby to 2 miles
-    }
-    
-    // Handle "X miles away" format
-    const match = lowerText.match(/(\d+)\s+miles?\s+away/);
-    return match ? parseInt(match[1]) : 999;
-  }
-
-  // Helper method to check if a sale date is within specified number of days
-  static isWithinDays(dateString: string, maxDays: number): boolean {
-    if (!dateString || dateString === 'Date TBD') {
-      return true; // Include sales without specific dates
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const maxDate = new Date(today);
-    maxDate.setDate(today.getDate() + maxDays);
-
-    try {
-      const currentYear = today.getFullYear();
-      const dateToCheck = this.parseSaleDate(dateString, currentYear);
-      
-      if (!dateToCheck) {
-        return true; // If we can't parse it, include it
-      }
-
-      return dateToCheck >= today && dateToCheck <= maxDate;
-    } catch (error) {
-      console.warn('Error parsing date:', dateString, error);
-      return true; // If error parsing, include the sale
-    }
   }
 
   static async searchThriftStores(locationUrl: string, radiusFilter: number): Promise<{ success: boolean; error?: string; data?: any }> {
