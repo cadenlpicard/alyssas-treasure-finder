@@ -80,10 +80,11 @@ Deno.serve(async (req) => {
           }
 
           console.log(`Successfully scraped ${url}`);
+          console.log(`Scrape result structure:`, JSON.stringify(scrapeResult, null, 2));
           return {
             url,
             success: true,
-            data: scrapeResult.data
+            data: scrapeResult.data || scrapeResult
           };
         } catch (error) {
           console.error(`Error scraping ${url}:`, error);
