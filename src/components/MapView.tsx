@@ -191,7 +191,7 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
         markerEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
         hideTimeoutRef.current = setTimeout(() => {
           setSelectedSale(null);
-        }, 300);
+        }, 500); // Increased delay to 500ms
       });
 
       // Add improved click/touch handler for selection with mobile support
@@ -254,7 +254,7 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
           onMouseLeave={() => {
             hideTimeoutRef.current = setTimeout(() => {
               setSelectedSale(null);
-            }, 300);
+            }, 500); // Increased delay to match marker
           }}
         >
           <Card className="p-4 bg-background/95 backdrop-blur-sm border shadow-lg">

@@ -44,12 +44,15 @@ serve(async (req) => {
       );
     }
 
-    // Search for thrift stores, secondhand stores, and consignment shops
+    // Search for thrift stores, secondhand stores, consignment shops, and specific chains
     const searchQueries = [
       `thrift stores near ${location}`,
       `secondhand stores near ${location}`,
       `consignment shops near ${location}`,
-      `vintage stores near ${location}`
+      `vintage stores near ${location}`,
+      `Goodwill near ${location}`,
+      `Salvation Army near ${location}`,
+      `charity shops near ${location}`
     ];
 
     const allResults = [];

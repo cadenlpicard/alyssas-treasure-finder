@@ -381,17 +381,23 @@ export const EstateSalesScraper = () => {
           <MapView 
             sales={sortedData
               .filter((item: any) => {
-                // Only show items with valid addresses in map mode
+                // Only show items with valid street addresses in map mode
                 const address = item.address || '';
-                return address && 
-                       address !== 'Address TBD' && 
-                       address.trim() !== '' &&
-                       !address.includes('Last modified') &&
-                       !address.includes('Pictures') &&
-                       !address.includes('Picture Added') &&
-                       !address.includes('hours ago') &&
-                       !address.includes('minutes ago') &&
-                       !address.includes('days ago');
+                if (!address || 
+                    address === 'Address TBD' || 
+                    address.trim() === '' ||
+                    address.includes('Last modified') ||
+                    address.includes('Pictures') ||
+                    address.includes('Picture Added') ||
+                    address.includes('hours ago') ||
+                    address.includes('minutes ago') ||
+                    address.includes('days ago')) {
+                  return false;
+                }
+                
+                // Must have a street number and street name pattern
+                const hasStreetAddress = /\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)/i.test(address);
+                return hasStreetAddress;
               })
               .map((item: any, index: number) => ({
                 title: item.title || '',
