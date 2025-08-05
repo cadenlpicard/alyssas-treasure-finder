@@ -208,6 +208,12 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
     displayAddress = displayCity && displayState ? `${displayCity}, ${displayState}` : displayAddress;
   }
 
+  // Check if the sale has a valid street address
+  const hasValidAddress = displayAddress && 
+    displayAddress !== 'Address TBD' && 
+    displayAddress.trim() !== '' &&
+    /\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)/i.test(displayAddress);
+
   // Debug logging for address issues
   console.log('Estate Sale Debug:', {
     title: displayTitle,
@@ -249,8 +255,15 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
           <div className="flex items-start gap-3 flex-1">
             <Checkbox
               checked={isSelected}
-              onCheckedChange={(checked) => onSelect?.(sale, !!checked)}
-              className="mt-1"
+              disabled={!hasValidAddress}
+              onCheckedChange={(checked) => {
+                if (!hasValidAddress) {
+                  return; // Prevent selection if no valid address
+                }
+                onSelect?.(sale, !!checked);
+              }}
+              className={`mt-1 ${!hasValidAddress ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={!hasValidAddress ? 'Cannot select: No address available for route planning' : undefined}
             />
             <div className="flex-1">
               <CardTitle className="text-lg font-semibold text-foreground leading-tight">
