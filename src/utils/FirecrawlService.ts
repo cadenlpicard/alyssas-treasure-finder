@@ -57,11 +57,18 @@ export class FirecrawlService {
       let combinedMarkdown = '';
       const successfulResults = data.results.filter((result: any) => result.success);
       
+      console.log('Processing successful results:', successfulResults.length);
       for (const result of successfulResults) {
+        console.log('Result data structure:', result.data);
         if (result.data?.markdown) {
+          console.log('Adding markdown from result:', result.url);
           combinedMarkdown += result.data.markdown + '\n\n';
+        } else {
+          console.log('No markdown found in result:', result.url, result.data);
         }
       }
+      
+      console.log('Final combined markdown length:', combinedMarkdown.length);
       
       // Parse estate sales from the combined markdown content
       const parsedSales = this.parseEstateSales(combinedMarkdown);
