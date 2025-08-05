@@ -50,9 +50,14 @@ serve(async (req) => {
       `secondhand stores near ${location}`,
       `consignment shops near ${location}`,
       `vintage stores near ${location}`,
-      `Goodwill near ${location}`,
-      `Salvation Army near ${location}`,
-      `charity shops near ${location}`
+      `Goodwill store ${location}`,
+      `Goodwill ${location}`,
+      `"Goodwill" ${location}`,
+      `Salvation Army store ${location}`,
+      `Salvation Army ${location}`,
+      `"Salvation Army" ${location}`,
+      `charity shops near ${location}`,
+      `thrift shop ${location}`
     ];
 
     const allResults = [];
@@ -65,6 +70,10 @@ serve(async (req) => {
         searchUrl.searchParams.append('key', googleApiKey);
         searchUrl.searchParams.append('radius', (radius * 1609.34).toString()); // Convert miles to meters
         searchUrl.searchParams.append('type', 'store');
+        // Remove location bias to get broader results
+        if (query.includes('Goodwill') || query.includes('Salvation Army')) {
+          searchUrl.searchParams.append('type', 'establishment'); // Use broader type for chain stores
+        }
 
         console.log(`Searching with query: ${query}`);
 
@@ -84,7 +93,7 @@ serve(async (req) => {
               const detailsUrl = new URL('https://maps.googleapis.com/maps/api/place/details/json');
               detailsUrl.searchParams.append('place_id', place.place_id);
               detailsUrl.searchParams.append('key', googleApiKey);
-              detailsUrl.searchParams.append('fields', 'name,formatted_address,formatted_phone_number,website,rating,opening_hours,geometry,photos,types');
+              detailsUrl.searchParams.append('fields', 'name,formatted_address,formatted_phone_number,website,rating,opening_hours,geometry,photos,types,place_id');
 
               const detailsResponse = await fetch(detailsUrl.toString());
               const detailsData = await detailsResponse.json();
