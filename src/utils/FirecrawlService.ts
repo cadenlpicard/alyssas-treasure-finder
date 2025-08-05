@@ -15,11 +15,37 @@ type FirecrawlResponse = ScrapeResponse | ErrorResponse;
 export class FirecrawlService {
   static async crawlWebsite(url: string, filters?: { maxDays?: number; maxRadius?: number }): Promise<{ success: boolean; error?: string; data?: any }> {
     try {
-      console.log('Making scrape request via Supabase edge function for:', url);
+      console.log('Starting intelligent URL analysis for:', url);
       
-      // Use single URL scraping to avoid pulling related URLs
-      const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
-        body: { url: url }
+      // First, use ChatGPT to analyze the URL and generate optimal variants
+      const { data: analysisData, error: analysisError } = await supabase.functions.invoke('analyze-url-variants', {
+        body: { url }
+      });
+
+      if (analysisError) {
+        console.warn('URL analysis failed, falling back to single URL:', analysisError);
+        // Fallback to single URL if analysis fails
+        return this.scrapeSingleUrl(url, filters);
+      }
+
+      if (!analysisData.success) {
+        console.warn('URL analysis unsuccessful, falling back to single URL:', analysisData.error);
+        return this.scrapeSingleUrl(url, filters);
+      }
+
+      console.log('ChatGPT Analysis:', analysisData.analysis);
+      const variants = analysisData.analysis.recommendedVariants || [url];
+      
+      // If ChatGPT recommends no variants or only the original URL, use single scraping
+      if (variants.length <= 1) {
+        console.log('Using single URL scraping based on analysis');
+        return this.scrapeSingleUrl(url, filters);
+      }
+
+      // Use batch scraping for multiple variants
+      console.log('Using batch scraping for variants:', variants);
+      const { data, error } = await supabase.functions.invoke('firecrawl-scrape-batch', {
+        body: { urls: variants }
       });
 
       if (error) {
@@ -40,29 +66,38 @@ export class FirecrawlService {
       }
 
       if (!data.success) {
-        console.error('Scrape failed:', data.error);
+        console.error('Batch scrape failed:', data.error);
         return { 
           success: false, 
           error: data.error || 'Failed to scrape website' 
         };
       }
 
-      console.log('Scrape successful');
+      console.log(`Batch scrape successful: ${data.successCount}/${data.totalProcessed} URLs processed`);
       
-      // Extract markdown from single result
-      let markdown = '';
-      if (data.data?.markdown) {
-        markdown = data.data.markdown;
-      } else if (data.data?.content) {
-        markdown = data.data.content;
-      } else if (typeof data.data === 'string') {
-        markdown = data.data;
+      // Combine markdown from all successful results
+      let combinedMarkdown = '';
+      const successfulResults = data.results.filter((result: any) => result.success);
+      
+      for (const result of successfulResults) {
+        let markdown = '';
+        if (result.data?.markdown) {
+          markdown = result.data.markdown;
+        } else if (result.data?.content) {
+          markdown = result.data.content;
+        } else if (typeof result.data === 'string') {
+          markdown = result.data;
+        }
+        
+        if (markdown) {
+          combinedMarkdown += markdown + '\n\n';
+        }
       }
       
-      console.log('Extracted markdown length:', markdown.length);
+      console.log('Final combined markdown length:', combinedMarkdown.length);
       
-      // Parse estate sales from the markdown content with filters
-      const parsedSales = this.parseEstateSales(markdown, filters);
+      // Parse estate sales from the combined markdown content with filters
+      const parsedSales = this.parseEstateSales(combinedMarkdown, filters);
       
       // Convert scrape response to match expected crawl format
       const formattedData = {
@@ -95,6 +130,68 @@ export class FirecrawlService {
       return { 
         success: false, 
         error: errorMessage
+      };
+    }
+  }
+
+  // Helper method for single URL scraping (fallback)
+  static async scrapeSingleUrl(url: string, filters?: { maxDays?: number; maxRadius?: number }): Promise<{ success: boolean; error?: string; data?: any }> {
+    try {
+      console.log('Making single URL scrape request for:', url);
+      
+      const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
+        body: { url }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        return { 
+          success: false, 
+          error: error.message || 'Failed to call scraping service' 
+        };
+      }
+
+      if (!data.success) {
+        console.error('Scrape failed:', data.error);
+        return { 
+          success: false, 
+          error: data.error || 'Failed to scrape website' 
+        };
+      }
+
+      // Extract markdown from single result
+      let markdown = '';
+      if (data.data?.markdown) {
+        markdown = data.data.markdown;
+      } else if (data.data?.content) {
+        markdown = data.data.content;
+      } else if (typeof data.data === 'string') {
+        markdown = data.data;
+      }
+      
+      // Parse estate sales from the markdown content with filters
+      const parsedSales = this.parseEstateSales(markdown, filters);
+      
+      // Convert scrape response to match expected crawl format
+      const formattedData = {
+        success: true,
+        status: 'completed',
+        completed: parsedSales.length,
+        total: parsedSales.length,
+        creditsUsed: 1,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        data: parsedSales
+      };
+      
+      return { 
+        success: true,
+        data: formattedData
+      };
+    } catch (error) {
+      console.error('Error during single URL scrape:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to scrape website'
       };
     }
   }
