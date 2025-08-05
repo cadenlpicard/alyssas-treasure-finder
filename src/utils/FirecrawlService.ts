@@ -118,12 +118,7 @@ export class FirecrawlService {
       variants.push(`${baseUrl}${separator}page=${page}`);
     }
     
-    // Add sorting variants for more comprehensive results
-    const separator = baseUrl.includes('?') ? '&' : '?';
-    variants.push(`${baseUrl}${separator}sort=distance`);
-    variants.push(`${baseUrl}${separator}sort=date`);
-    
-    return variants.slice(0, 5); // Limit to 5 variants to avoid overwhelming
+    return variants; // Return only base URL and pagination variants
   }
 
   static parseEstateSales(markdown: string): any[] {
