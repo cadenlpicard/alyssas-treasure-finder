@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MapPin, Calendar, Clock, ExternalLink, Tag, CheckCircle } from 'lucide-react';
 
 interface EstateSale {
@@ -226,9 +227,10 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
   });
 
   return (
-    <Card className={`group hover:shadow-lg transition-all duration-300 border-vintage-gold/20 bg-card/80 backdrop-blur overflow-hidden ${
-      isSelected ? 'ring-2 ring-vintage-gold bg-vintage-gold/10' : ''
-    }`}>
+    <TooltipProvider>
+      <Card className={`group hover:shadow-lg transition-all duration-300 border-vintage-gold/20 bg-card/80 backdrop-blur overflow-hidden ${
+        isSelected ? 'ring-2 ring-vintage-gold bg-vintage-gold/10' : ''
+      }`}>
       {sale.imageUrl && (
         <div className="relative h-48 w-full overflow-hidden cursor-pointer" onClick={() => sale.url && window.open(sale.url, '_blank')}>
           <img 
@@ -253,18 +255,38 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3 flex-1">
-            <Checkbox
-              checked={isSelected}
-              disabled={!hasValidAddress}
-              onCheckedChange={(checked) => {
-                if (!hasValidAddress) {
-                  return; // Prevent selection if no valid address
-                }
-                onSelect?.(sale, !!checked);
-              }}
-              className={`mt-1 ${!hasValidAddress ? 'opacity-50 cursor-not-allowed' : ''}`}
-              title={!hasValidAddress ? 'Cannot select: No address available for route planning' : undefined}
-            />
+            {!hasValidAddress ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Checkbox
+                    checked={isSelected}
+                    disabled={!hasValidAddress}
+                    onCheckedChange={(checked) => {
+                      if (!hasValidAddress) {
+                        return; // Prevent selection if no valid address
+                      }
+                      onSelect?.(sale, !!checked);
+                    }}
+                    className={`mt-1 ${!hasValidAddress ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>No address available cannot route</p>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Checkbox
+                checked={isSelected}
+                disabled={!hasValidAddress}
+                onCheckedChange={(checked) => {
+                  if (!hasValidAddress) {
+                    return; // Prevent selection if no valid address
+                  }
+                  onSelect?.(sale, !!checked);
+                }}
+                className={`mt-1 ${!hasValidAddress ? 'opacity-50 cursor-not-allowed' : ''}`}
+              />
+            )}
             <div className="flex-1">
               <CardTitle className="text-lg font-semibold text-foreground leading-tight">
                 {displayTitle}
@@ -370,5 +392,6 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
         </div>
       </CardContent>
     </Card>
+    </TooltipProvider>
   );
 };
