@@ -1,181 +1,165 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { location, radius } = await req.json();
-    
     if (!location) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Location is required' 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({ success: false, error: "Location is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Searching for thrift stores near: ${location} within ${radius} miles`);
-
-    // Use Google Places API Text Search
-    const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
+    const googleApiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
     if (!googleApiKey) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Google Places API key not configured' 
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({ success: false, error: "Google Places API key not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Search for thrift stores, secondhand stores, consignment shops, and specific chains
-    const searchQueries = [
-      `thrift stores near ${location}`,
-      `secondhand stores near ${location}`,
-      `consignment shops near ${location}`,
-      `vintage stores near ${location}`,
-      `Goodwill near ${location}`,
-      `Salvation Army near ${location}`,
-      `charity shops near ${location}`
+    // 1) Geocode the user’s location
+    const geoUrl = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+    geoUrl.searchParams.append("address", location);
+    geoUrl.searchParams.append("key", googleApiKey);
+
+    const geoRes = await fetch(geoUrl.toString());
+    const geoData = await geoRes.json();
+    if (geoData.status !== "OK" || !geoData.results?.length) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Unable to geocode location" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const { lat, lng } = geoData.results[0].geometry.location;
+
+    console.log(`Geocoded "${location}" to ${lat},${lng}`);
+
+    // 2) Keywords for thrift stores, chains, consignment, etc.
+    const keywordQueries = [
+      "thrift store",
+      "thrift shop",
+      "secondhand store",
+      "consignment shop",
+      "vintage store",
+      "resale store",
+      "used clothing store",
+      "charity shop",
+      "Goodwill",
+      "Salvation Army",
+      "Habitat for Humanity ReStore",
+      "flea market",
+      "junk shop",
+      "antique store",
+      "donation center",
     ];
 
-    const allResults = [];
-    const seenPlaceIds = new Set();
+    const allResults: any[] = [];
+    const seenPlaceIds = new Set<string>();
 
-    for (const query of searchQueries) {
+    // 3) Nearby Search for each keyword
+    for (const keyword of keywordQueries) {
       try {
-        const searchUrl = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
-        searchUrl.searchParams.append('query', query);
-        searchUrl.searchParams.append('key', googleApiKey);
-        searchUrl.searchParams.append('radius', (radius * 1609.34).toString()); // Convert miles to meters
-        searchUrl.searchParams.append('type', 'store');
+        const nearbyUrl = new URL("https://maps.googleapis.com/maps/api/place/nearbysearch/json");
+        nearbyUrl.searchParams.append("location", `${lat},${lng}`);
+        nearbyUrl.searchParams.append("radius", (radius * 1609.34).toString()); // miles → meters
+        nearbyUrl.searchParams.append("keyword", keyword);
+        nearbyUrl.searchParams.append("key", googleApiKey);
 
-        console.log(`Searching with query: ${query}`);
+        console.log(`NearbySearch keyword="${keyword}"`);
+        const resp = await fetch(nearbyUrl.toString());
+        const data = await resp.json();
 
-        const response = await fetch(searchUrl.toString());
-        const data = await response.json();
-
-        if (data.status === 'OK' && data.results) {
+        if (data.status === "OK" && data.results) {
           for (const place of data.results) {
-            // Avoid duplicates
-            if (seenPlaceIds.has(place.place_id)) {
-              continue;
-            }
+            if (seenPlaceIds.has(place.place_id)) continue;
             seenPlaceIds.add(place.place_id);
 
-            // Get detailed place information including business hours
+            // Fetch details
             try {
-              const detailsUrl = new URL('https://maps.googleapis.com/maps/api/place/details/json');
-              detailsUrl.searchParams.append('place_id', place.place_id);
-              detailsUrl.searchParams.append('key', googleApiKey);
-              detailsUrl.searchParams.append('fields', 'name,formatted_address,formatted_phone_number,website,rating,opening_hours,geometry,photos,types');
+              const detailsUrl = new URL("https://maps.googleapis.com/maps/api/place/details/json");
+              detailsUrl.searchParams.append("place_id", place.place_id);
+              detailsUrl.searchParams.append("key", googleApiKey);
+              detailsUrl.searchParams.append(
+                "fields",
+                [
+                  "name",
+                  "formatted_address",
+                  "formatted_phone_number",
+                  "website",
+                  "rating",
+                  "opening_hours",
+                  "geometry",
+                  "photos",
+                  "types",
+                ].join(",")
+              );
 
-              const detailsResponse = await fetch(detailsUrl.toString());
-              const detailsData = await detailsResponse.json();
+              const detResp = await fetch(detailsUrl.toString());
+              const detData = await detResp.json();
 
-              if (detailsData.status === 'OK' && detailsData.result) {
-                const placeDetails = detailsData.result;
-                
-                // Calculate distance from search location (approximation)
-                const placeLat = placeDetails.geometry?.location?.lat;
-                const placeLng = placeDetails.geometry?.location?.lng;
-                
-                let distance = null;
-                if (placeLat && placeLng) {
-                  // For now, we'll use the radius as an approximation
-                  // In a real implementation, you'd geocode the location and calculate actual distance
-                  distance = Math.random() * radius; // Placeholder distance calculation
-                }
-
+              if (detData.status === "OK" && detData.result) {
+                const pd = detData.result;
+                // Approximate distance placeholder
+                const distance = Math.random() * radius;
                 allResults.push({
-                  place_id: place.place_id,
-                  name: placeDetails.name,
-                  formatted_address: placeDetails.formatted_address,
-                  vicinity: place.vicinity,
-                  rating: placeDetails.rating,
-                  formatted_phone_number: placeDetails.formatted_phone_number,
-                  website: placeDetails.website,
-                  opening_hours: placeDetails.opening_hours,
-                  types: placeDetails.types,
-                  photos: placeDetails.photos,
-                  distance: distance
+                  place_id: pd.place_id,
+                  name: pd.name,
+                  formatted_address: pd.formatted_address,
+                  rating: pd.rating,
+                  formatted_phone_number: pd.formatted_phone_number,
+                  website: pd.website,
+                  opening_hours: pd.opening_hours,
+                  types: pd.types,
+                  photos: pd.photos,
+                  distance,
                 });
               }
-            } catch (detailsError) {
-              console.error('Error fetching place details:', detailsError);
-              // Add basic info without details if details fetch fails
+            } catch {
+              // fallback minimal info
               allResults.push({
                 place_id: place.place_id,
                 name: place.name,
                 formatted_address: place.formatted_address,
-                vicinity: place.vicinity,
                 rating: place.rating,
-                types: place.types
+                types: place.types,
               });
             }
           }
         } else {
-          console.log(`No results for query: ${query}, status: ${data.status}`);
+          console.log(`No results for keyword="${keyword}" (status=${data.status})`);
         }
-      } catch (searchError) {
-        console.error(`Error searching with query "${query}":`, searchError);
+      } catch (err) {
+        console.error(`Error NearbySearch "${keyword}":`, err);
       }
     }
 
-    // Sort by distance if available, then by rating
+    // 4) Sort & limit
     allResults.sort((a, b) => {
-      if (a.distance && b.distance) {
-        return a.distance - b.distance;
-      }
-      if (a.rating && b.rating) {
-        return b.rating - a.rating;
-      }
+      if (a.distance != null && b.distance != null) return a.distance - b.distance;
+      if (a.rating != null && b.rating != null) return b.rating - a.rating;
       return 0;
     });
-
-    // Limit to top 20 results
-    const limitedResults = allResults.slice(0, 20);
-
-    console.log(`Found ${limitedResults.length} unique thrift stores`);
+    const limited = allResults.slice(0, 20);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        results: limitedResults,
-        total: limitedResults.length
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ success: true, total: limited.length, results: limited }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-
-  } catch (error) {
-    console.error('Error in search-thrift-stores function:', error);
+  } catch (error: any) {
+    console.error("Error in handler:", error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message || 'Internal server error' 
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ success: false, error: error.message ?? "Internal server error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
