@@ -154,6 +154,17 @@ export class FirecrawlService {
         continue;
       }
       
+      // Skip aggregated search results or nearby listings
+      if (block.includes('Nearby [') || 
+          block.includes('Address not available yet') ||
+          block.includes('Companies have paid extra') ||
+          block.includes('#### Statistics About') ||
+          block.includes('Featured Sales Please note') ||
+          (block.match(/\[.*?\]\(https:\/\/www\.estatesales\.net/g) || []).length > 5) {
+        console.log('Skipping aggregated search result or nearby listing');
+        continue;
+      }
+      
       const sale: any = {};
       
       // Extract image URL - look for image pattern at the beginning
@@ -325,10 +336,18 @@ export class FirecrawlService {
       if (sale.status) descParts.push(sale.status);
       sale.description = descParts.join(' • ');
       
-      // Only add sales that have at least a title
+      // Only add sales that have at least a title and are today or in the future
       if (sale.title && sale.title.length > 0) {
-        sales.push(sale);
-        console.log(`✅ Added sale: "${sale.title}" at ${sale.address || sale.streetAddress || 'No address found'}`);
+        // Check if sale is today or in the future
+        const isTodayOrFuture = this.isTodayOrLater(sale.date);
+        console.log(`Sale "${sale.title}" date: "${sale.date}" - today or future: ${isTodayOrFuture}`);
+        
+        if (isTodayOrFuture) {
+          sales.push(sale);
+          console.log(`✅ Added sale: "${sale.title}" at ${sale.address || sale.streetAddress || 'No address found'}`);
+        } else {
+          console.log(`❌ Filtered out sale: "${sale.title}" - past date`);
+        }
       } else {
         console.log(`❌ Skipped sale block - no title found`);
       }
