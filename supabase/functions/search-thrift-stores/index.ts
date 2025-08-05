@@ -44,26 +44,32 @@ serve(async (req) => {
       );
     }
 
-    // Search for thrift stores, secondhand stores, consignment shops, and specific chains
-    // Include broader area searches to catch stores in nearby towns
+    // First, geocode the location to get lat/lng for location bias
+    const geocodeUrl = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+    geocodeUrl.searchParams.append('address', location);
+    geocodeUrl.searchParams.append('key', googleApiKey);
+    
+    const geocodeResponse = await fetch(geocodeUrl.toString());
+    const geocodeData = await geocodeResponse.json();
+    
+    let locationBias = '';
+    if (geocodeData.status === 'OK' && geocodeData.results?.[0]?.geometry?.location) {
+      const { lat, lng } = geocodeData.results[0].geometry.location;
+      // Use circular location bias with the specified radius
+      locationBias = `circle:${radius * 1609.34}@${lat},${lng}`;
+      console.log(`Using location bias: ${locationBias}`);
+    }
+
+    // Search for thrift stores with proper location bias and type filtering
     const searchQueries = [
-      `thrift stores near ${location}`,
-      `secondhand stores near ${location}`,
-      `consignment shops near ${location}`,
-      `vintage stores near ${location}`,
-      `Goodwill store ${location}`,
-      `Goodwill near ${location}`,
-      `"Goodwill" ${location}`,
-      `Goodwill store Goodrich MI`,
-      `Goodwill Goodrich Michigan`,
-      `Salvation Army store ${location}`,
-      `Salvation Army near ${location}`,
-      `"Salvation Army" ${location}`,
-      `Salvation Army Goodrich MI`,
-      `charity shops near ${location}`,
-      `thrift shop ${location}`,
-      `thrift stores Goodrich MI`,
-      `secondhand stores Goodrich MI`
+      'thrift store',
+      'secondhand store', 
+      'consignment shop',
+      'vintage store',
+      'Goodwill',
+      'Salvation Army',
+      'charity shop',
+      'thrift shop'
     ];
 
     const allResults = [];
@@ -74,12 +80,14 @@ serve(async (req) => {
         const searchUrl = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
         searchUrl.searchParams.append('query', query);
         searchUrl.searchParams.append('key', googleApiKey);
-        searchUrl.searchParams.append('radius', (radius * 1609.34).toString()); // Convert miles to meters
-        searchUrl.searchParams.append('type', 'store');
-        // Remove location bias to get broader results
-        if (query.includes('Goodwill') || query.includes('Salvation Army')) {
-          searchUrl.searchParams.append('type', 'establishment'); // Use broader type for chain stores
+        
+        // Add location bias if we have coordinates
+        if (locationBias) {
+          searchUrl.searchParams.append('locationbias', locationBias);
         }
+        
+        // Add region bias to prefer results in the specified area
+        searchUrl.searchParams.append('region', 'us');
 
         console.log(`Searching with query: ${query}`);
 
