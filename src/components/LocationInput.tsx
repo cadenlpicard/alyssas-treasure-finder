@@ -64,6 +64,47 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
       return;
     }
 
+    // Check if it's a zipcode (5 digits)
+    const isZipcode = /^\d{5}$/.test(query.trim());
+    
+    if (isZipcode) {
+      // Direct zipcode search
+      try {
+        setIsLoading(true);
+        const response = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?` +
+          `access_token=${mapboxToken}&` +
+          `country=us&` +
+          `types=postcode&` +
+          `limit=1`
+        );
+        
+        const data = await response.json();
+        if (data.features && data.features.length > 0) {
+          const feature = data.features[0];
+          const suggestion: LocationSuggestion = {
+            place_name: feature.place_name,
+            text: feature.text,
+            center: feature.center,
+            context: feature.context || []
+          };
+          setSuggestions([suggestion]);
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+        setIsLoading(false);
+        return;
+      } catch (error) {
+        console.error('Error fetching zipcode:', error);
+        setIsLoading(false);
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
       let allSuggestions: LocationSuggestion[] = [];
@@ -342,11 +383,11 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Input
-              value={searchValue}
-              onChange={(e) => handleInputChange(e.target.value)}
-              onFocus={handleInputFocus}
-              onBlur={handleInputBlur}
-              placeholder="Search any city or zipcode..."
+          value={searchValue}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
+          placeholder="Search city, zipcode only (e.g. 48348)..."
               className="h-12 border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
               disabled={!mapboxToken}
             />

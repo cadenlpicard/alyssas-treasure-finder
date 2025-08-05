@@ -188,13 +188,28 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
         }, 300);
       });
 
-      // Add click handler for selection
-      markerEl.addEventListener('click', (e) => {
+      // Add improved click/touch handler for selection with mobile support
+      const handleSelection = (e: Event) => {
+        e.preventDefault();
         e.stopPropagation();
+        
         if (onSaleSelection) {
-          onSaleSelection(sale.title, !isSelected);
+          const newSelection = !isSelected;
+          onSaleSelection(sale.title, newSelection);
+          
+          // For mobile, provide visual feedback and show sale details
+          if ('ontouchstart' in window) {
+            setSelectedSale(sale);
+            markerEl.style.transform = 'scale(1.2)';
+            setTimeout(() => {
+              if (markerEl) markerEl.style.transform = 'scale(1)';
+            }, 200);
+          }
         }
-      });
+      };
+
+      markerEl.addEventListener('click', handleSelection);
+      markerEl.addEventListener('touchend', handleSelection, { passive: false });
 
       // Create marker and add to map
       const marker = new mapboxgl.Marker(markerEl)

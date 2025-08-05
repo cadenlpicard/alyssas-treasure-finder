@@ -15,10 +15,15 @@ type FirecrawlResponse = ScrapeResponse | ErrorResponse;
 export class FirecrawlService {
   static async crawlWebsite(url: string): Promise<{ success: boolean; error?: string; data?: any }> {
     try {
-      console.log('Making scrape request via Supabase edge function for:', url);
+      console.log('Making optimized scrape request via Supabase edge function for:', url);
       
-      const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
-        body: { url }
+      // Generate multiple URL variants for better coverage and parallel processing
+      const urlVariants = this.generateUrlVariants(url);
+      console.log('Generated URL variants:', urlVariants);
+      
+      // Use batch scraping for better performance
+      const { data, error } = await supabase.functions.invoke('firecrawl-scrape-batch', {
+        body: { urls: urlVariants }
       });
 
       if (error) {
@@ -39,26 +44,27 @@ export class FirecrawlService {
       }
 
       if (!data.success) {
-        console.error('Scrape failed:', data.error);
-        
-        // Check for specific scraping failure messages
-        if (data.error?.includes('scraping engines failed') || data.error?.includes('500')) {
-          return { 
-            success: false, 
-            error: 'The estate sales website is currently blocking automated access. Please try again later or visit the website directly.' 
-          };
-        }
-        
+        console.error('Batch scrape failed:', data.error);
         return { 
           success: false, 
           error: data.error || 'Failed to scrape website' 
         };
       }
 
-      console.log('Scrape successful via edge function');
+      console.log(`Batch scrape successful: ${data.successCount}/${data.totalProcessed} URLs processed`);
       
-      // Parse estate sales from the markdown content
-      const parsedSales = this.parseEstateSales(data.data.markdown || '');
+      // Combine markdown from all successful results
+      let combinedMarkdown = '';
+      const successfulResults = data.results.filter((result: any) => result.success);
+      
+      for (const result of successfulResults) {
+        if (result.data?.markdown) {
+          combinedMarkdown += result.data.markdown + '\n\n';
+        }
+      }
+      
+      // Parse estate sales from the combined markdown content
+      const parsedSales = this.parseEstateSales(combinedMarkdown);
       
       // Convert scrape response to match expected crawl format
       const formattedData = {
@@ -93,6 +99,24 @@ export class FirecrawlService {
         error: errorMessage
       };
     }
+  }
+
+  // Generate multiple URL variants for better coverage and parallel scraping
+  static generateUrlVariants(baseUrl: string): string[] {
+    const variants = [baseUrl];
+    
+    // Add pagination variants (first few pages for more results)
+    for (let page = 2; page <= 3; page++) {
+      const separator = baseUrl.includes('?') ? '&' : '?';
+      variants.push(`${baseUrl}${separator}page=${page}`);
+    }
+    
+    // Add sorting variants for more comprehensive results
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    variants.push(`${baseUrl}${separator}sort=distance`);
+    variants.push(`${baseUrl}${separator}sort=date`);
+    
+    return variants.slice(0, 5); // Limit to 5 variants to avoid overwhelming
   }
 
   static parseEstateSales(markdown: string): any[] {
@@ -145,46 +169,76 @@ export class FirecrawlService {
         sale.lastModified = modifiedMatch[1].trim();
       }
       
-      // Extract address from estate sale link pattern - much more reliable
-      console.log('Processing block for address extraction:', block.substring(0, 200));
-      
-      // Look for the actual estate sale URL which contains the address structure
-      const urlMatch = block.match(/\]\((https:\/\/www\.estatesales\.net\/([A-Z]{2})\/([^\/]+)\/(\d{5})?[^)]*)\)/);
-      
-      if (urlMatch) {
-        const [, fullUrl, state, cityFromUrl, zipCode] = urlMatch;
+        // Enhanced address extraction with better street address parsing
+        console.log('Processing block for address extraction:', block.substring(0, 200));
         
-        // Convert URL city name back to readable format
-        const city = cityFromUrl.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        
-        console.log('Extracted from URL:', { state, city, zipCode, fullUrl });
-        
-        sale.state = state;
-        sale.city = city;
-        sale.zipCode = zipCode || '';
-        sale.address = `${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
-        sale.url = fullUrl;
-      } else {
-        // Fallback: try to find address info in the text
+        // First try to extract street address from the block content
         const lines = block.split(/[\\\\|\n|\r]/);
+        let streetAddress = '';
         
         for (const line of lines) {
-          const cleanLine = line.trim();
-          if (!cleanLine || cleanLine.length < 3) continue;
+          const cleanLine = line.trim().replace(/\\\\/g, ' ').replace(/\s+/g, ' ');
+          if (!cleanLine || cleanLine.length < 5) continue;
           
-          // Look for city, state pattern in text
-          const cityStatePattern = /^([A-Za-z\s]+),?\s*([A-Z]{2})\s*(\d{5})?$/;
-          const cityMatch = cleanLine.match(cityStatePattern);
-          if (cityMatch && !sale.city) {
-            sale.city = cityMatch[1].trim();
-            sale.state = cityMatch[2];
-            sale.zipCode = cityMatch[3] || '';
-            sale.address = `${sale.city}, ${sale.state}${sale.zipCode ? ' ' + sale.zipCode : ''}`;
-            console.log('Found city/state in text:', sale.city, sale.state, sale.zipCode);
+          // Look for street address patterns first
+          const streetPattern = /^\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)\b/i;
+          if (streetPattern.test(cleanLine) && !streetAddress) {
+            streetAddress = cleanLine;
+            console.log('Found street address:', streetAddress);
             break;
           }
         }
-      }
+        
+        // Look for the actual estate sale URL which contains the address structure
+        const urlMatch = block.match(/\]\((https:\/\/www\.estatesales\.net\/([A-Z]{2})\/([^\/]+)\/(\d{5})?[^)]*)\)/);
+        
+        if (urlMatch) {
+          const [, fullUrl, state, cityFromUrl, zipCode] = urlMatch;
+          
+          // Convert URL city name back to readable format
+          const city = cityFromUrl.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          
+          console.log('Extracted from URL:', { state, city, zipCode, fullUrl });
+          
+          sale.state = state;
+          sale.city = city;
+          sale.zipCode = zipCode || '';
+          sale.streetAddress = streetAddress;
+          
+          // Construct full address with street address if available
+          if (streetAddress) {
+            sale.address = `${streetAddress}, ${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
+          } else {
+            sale.address = `${city}, ${state}${zipCode ? ' ' + zipCode : ''}`;
+          }
+          
+          sale.url = fullUrl;
+        } else {
+          // Fallback: try to find address info in the text
+          for (const line of lines) {
+            const cleanLine = line.trim();
+            if (!cleanLine || cleanLine.length < 3) continue;
+            
+            // Look for city, state pattern in text
+            const cityStatePattern = /^([A-Za-z\s]+),?\s*([A-Z]{2})\s*(\d{5})?$/;
+            const cityMatch = cleanLine.match(cityStatePattern);
+            if (cityMatch && !sale.city) {
+              sale.city = cityMatch[1].trim();
+              sale.state = cityMatch[2];
+              sale.zipCode = cityMatch[3] || '';
+              sale.streetAddress = streetAddress;
+              
+              if (streetAddress) {
+                sale.address = `${streetAddress}, ${sale.city}, ${sale.state}${sale.zipCode ? ' ' + sale.zipCode : ''}`;
+              } else {
+                sale.address = `${sale.city}, ${sale.state}${sale.zipCode ? ' ' + sale.zipCode : ''}`;
+              }
+              
+              console.log('Found city/state in text:', sale.city, sale.state, sale.zipCode);
+              break;
+            }
+          }
+        }
       
       console.log('Final address extraction result:', {
         fullAddress: sale.address,

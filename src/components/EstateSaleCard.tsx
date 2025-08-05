@@ -224,7 +224,7 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
       isSelected ? 'ring-2 ring-vintage-gold bg-vintage-gold/10' : ''
     }`}>
       {sale.imageUrl && (
-        <div className="relative h-48 w-full overflow-hidden">
+        <div className="relative h-48 w-full overflow-hidden cursor-pointer" onClick={() => sale.url && window.open(sale.url, '_blank')}>
           <img 
             src={sale.imageUrl} 
             alt={displayTitle || "Estate sale image"}

@@ -1,1 +1,32 @@
 project_id = "kxjtgiunlesbretadnft"
+
+# API settings
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+# Auth settings
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+email_double_confirm_changes = true
+enable_manual_linking = false
+
+# Functions
+[functions.firecrawl-scrape]
+verify_jwt = false
+
+[functions.get-mapbox-token]
+verify_jwt = false
+
+[functions.optimize-route]
+verify_jwt = false
+
+[functions.firecrawl-scrape-batch]
+verify_jwt = false

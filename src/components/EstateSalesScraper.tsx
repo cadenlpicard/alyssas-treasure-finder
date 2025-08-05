@@ -8,7 +8,7 @@ import { FirecrawlService } from '@/utils/FirecrawlService';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Loader2, Sparkles, List } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Loader2, Sparkles, List, ArrowUpDown } from 'lucide-react';
 import { EstateSaleCard } from './EstateSaleCard';
 import { MapView } from './MapView';
 import { RouteOptimizationDialog } from './RouteOptimizationDialog';
@@ -53,6 +53,7 @@ export const EstateSalesScraper = () => {
   const [selectedSales, setSelectedSales] = useState<EstateSale[]>([]);
   const [showRouteDialog, setShowRouteDialog] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [sortBy, setSortBy] = useState<'date' | 'distance'>('date');
 
   // Helper function to parse distance from text
   const parseDistance = (distanceText?: string): number => {
@@ -185,21 +186,68 @@ export const EstateSalesScraper = () => {
       return distance <= radiusFilter;
     });
 
+    // Sort the data based on selected sort option
+    const sortedData = filteredData.sort((a: any, b: any) => {
+      if (sortBy === 'distance') {
+        const distanceA = parseDistance(a.distance);
+        const distanceB = parseDistance(b.distance);
+        return distanceA - distanceB;
+      } else if (sortBy === 'date') {
+        // Parse dates for comparison
+        const parseDate = (dateStr: string): Date => {
+          if (!dateStr || dateStr === 'Date TBD') return new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // Far future for TBD
+          
+          const currentYear = new Date().getFullYear();
+          const dateMatch = dateStr.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/i);
+          
+          if (dateMatch) {
+            const [, month, day] = dateMatch;
+            const monthMap: { [key: string]: number } = {
+              'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+              'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+            };
+            const monthIndex = monthMap[month.toLowerCase()];
+            const dayNum = parseInt(day);
+            return new Date(currentYear, monthIndex, dayNum);
+          }
+          
+          return new Date(); // Default to today if can't parse
+        };
+        
+        const dateA = parseDate(a.date);
+        const dateB = parseDate(b.date);
+        return dateA.getTime() - dateB.getTime();
+      }
+      return 0;
+    });
+
     return (
       <div className="mt-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <h4 className="font-semibold text-foreground flex items-center gap-2">
               <Grid className="w-5 h-5 text-vintage-gold" />
-              Found Estate Sales ({filteredData.length})
+              Found Estate Sales ({sortedData.length})
             </h4>
-            {radiusFilter !== 999 && filteredData.length !== deduplicatedData.length && (
+            {radiusFilter !== 999 && sortedData.length !== deduplicatedData.length && (
               <Badge variant="outline" className="text-xs">
-                {deduplicatedData.length - filteredData.length} filtered out
-               </Badge>
+                {deduplicatedData.length - sortedData.length} filtered out
+              </Badge>
              )}
            </div>
           <div className="flex items-center gap-3">
+            {/* Sort Option */}
+            <Select value={sortBy} onValueChange={(value: 'date' | 'distance') => setSortBy(value)}>
+              <SelectTrigger className="h-8 w-32">
+                <ArrowUpDown className="w-4 h-4 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">By Date</SelectItem>
+                <SelectItem value="distance">By Distance</SelectItem>
+              </SelectContent>
+            </Select>
+            
             {/* View Toggle */}
             <div className="flex items-center bg-muted/50 rounded-lg p-1">
               <Button
@@ -243,7 +291,7 @@ export const EstateSalesScraper = () => {
         {/* Results Display */}
         {viewMode === 'map' ? (
           <MapView 
-            sales={filteredData.map((item: any, index: number) => ({
+            sales={sortedData.map((item: any, index: number) => ({
               title: item.title || '',
               address: item.address || '',
               city: item.city || '',
@@ -261,7 +309,7 @@ export const EstateSalesScraper = () => {
             }))}
             selectedSales={selectedSales.map(s => s.title || '')}
             onSaleSelection={(saleTitle, selected) => {
-              const sale = filteredData.find((item: any) => item.title === saleTitle);
+              const sale = sortedData.find((item: any) => item.title === saleTitle);
               if (sale) {
                 const saleData: EstateSale = {
                   title: sale.title || '',
@@ -285,7 +333,7 @@ export const EstateSalesScraper = () => {
           />
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {filteredData.map((item: any, index: number) => {
+            {sortedData.map((item: any, index: number) => {
               const uniqueId = `sale-${index}-${item.title?.slice(0, 20) || 'untitled'}-${item.address?.slice(0, 20) || 'no-address'}`.replace(/[^a-zA-Z0-9-]/g, '-');
               const saleData: EstateSale = {
                 title: item.title,
