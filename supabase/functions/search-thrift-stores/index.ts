@@ -45,19 +45,25 @@ serve(async (req) => {
     }
 
     // Search for thrift stores, secondhand stores, consignment shops, and specific chains
+    // Include broader area searches to catch stores in nearby towns
     const searchQueries = [
       `thrift stores near ${location}`,
       `secondhand stores near ${location}`,
       `consignment shops near ${location}`,
       `vintage stores near ${location}`,
       `Goodwill store ${location}`,
-      `Goodwill ${location}`,
+      `Goodwill near ${location}`,
       `"Goodwill" ${location}`,
+      `Goodwill store Goodrich MI`,
+      `Goodwill Goodrich Michigan`,
       `Salvation Army store ${location}`,
-      `Salvation Army ${location}`,
+      `Salvation Army near ${location}`,
       `"Salvation Army" ${location}`,
+      `Salvation Army Goodrich MI`,
       `charity shops near ${location}`,
-      `thrift shop ${location}`
+      `thrift shop ${location}`,
+      `thrift stores Goodrich MI`,
+      `secondhand stores Goodrich MI`
     ];
 
     const allResults = [];
