@@ -190,7 +190,14 @@ export class FirecrawlService {
         // Enhanced address extraction with better street address parsing
         console.log('Processing block for address extraction:', block.substring(0, 200));
         
-        // First try to extract street address from the block content
+        // Extract distance FIRST to avoid confusion with address
+        const distanceMatch = block.match(/(\d+\s+miles?\s+away|Less than \d+ miles away|Nearby[^\\]*)/);
+        if (distanceMatch) {
+          sale.distance = distanceMatch[1].trim();
+          console.log('Found distance:', sale.distance);
+        }
+        
+        // Now extract street address from the block content (excluding distance)
         const lines = block.split(/[\\\\|\n|\r]/);
         let streetAddress = '';
         
@@ -198,7 +205,10 @@ export class FirecrawlService {
           const cleanLine = line.trim().replace(/\\\\/g, ' ').replace(/\s+/g, ' ');
           if (!cleanLine || cleanLine.length < 5) continue;
           
-          // Look for street address patterns first
+          // Skip lines that contain distance information
+          if (cleanLine.includes('miles away') || cleanLine.includes('Nearby')) continue;
+          
+          // Look for street address patterns
           const streetPattern = /^\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court|pkwy|parkway|blvd|boulevard|place|pl)\b/i;
           if (streetPattern.test(cleanLine) && !streetAddress) {
             streetAddress = cleanLine;
@@ -237,6 +247,9 @@ export class FirecrawlService {
             const cleanLine = line.trim();
             if (!cleanLine || cleanLine.length < 3) continue;
             
+            // Skip lines that contain distance information
+            if (cleanLine.includes('miles away') || cleanLine.includes('Nearby')) continue;
+            
             // Look for city, state pattern in text
             const cityStatePattern = /^([A-Za-z\s]+),?\s*([A-Z]{2})\s*(\d{5})?$/;
             const cityMatch = cleanLine.match(cityStatePattern);
@@ -263,14 +276,9 @@ export class FirecrawlService {
         streetAddress: sale.streetAddress,
         city: sale.city,
         state: sale.state,
-        zipCode: sale.zipCode
+        zipCode: sale.zipCode,
+        distance: sale.distance
       });
-      
-      // Extract distance
-      const distanceMatch = block.match(/(\d+\s+miles?\s+away|Less than \d+ miles away|Nearby[^\\]*)/);
-      if (distanceMatch) {
-        sale.distance = distanceMatch[1].trim();
-      }
       
       // Extract dates - look for month patterns
       const dateMatch = block.match(/((?:Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr|May|Jun)\s+\d+(?:,\s+\d+)?(?:,\s*(?:Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb|Mar|Apr|May|Jun)\s+\d+)*)/);
