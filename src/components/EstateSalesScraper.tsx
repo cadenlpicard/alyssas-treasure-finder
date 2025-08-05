@@ -379,23 +379,37 @@ export const EstateSalesScraper = () => {
         {/* Results Display */}
         {viewMode === 'map' ? (
           <MapView 
-            sales={sortedData.map((item: any, index: number) => ({
-              title: item.title || '',
-              address: item.address || '',
-              city: item.city || '',
-              state: item.state || '',
-              zipCode: item.zipCode || '',
-              company: item.company || '',
-              date: item.date || '',
-              time: item.time || '',
-              distance: item.distance || '',
-              status: item.status || '',
-              featured: item.featured || '',
-              url: item.url || item.sourceURL || '',
-              imageUrl: item.imageUrl || '',
-              description: item.description || '',
-              type: item.type || 'estate_sale'
-            }))}
+            sales={sortedData
+              .filter((item: any) => {
+                // Only show items with valid addresses in map mode
+                const address = item.address || '';
+                return address && 
+                       address !== 'Address TBD' && 
+                       address.trim() !== '' &&
+                       !address.includes('Last modified') &&
+                       !address.includes('Pictures') &&
+                       !address.includes('Picture Added') &&
+                       !address.includes('hours ago') &&
+                       !address.includes('minutes ago') &&
+                       !address.includes('days ago');
+              })
+              .map((item: any, index: number) => ({
+                title: item.title || '',
+                address: item.address || '',
+                city: item.city || '',
+                state: item.state || '',
+                zipCode: item.zipCode || '',
+                company: item.company || '',
+                date: item.date || '',
+                time: item.time || '',
+                distance: item.distance || '',
+                status: item.status || '',
+                featured: item.featured || '',
+                url: item.url || item.sourceURL || '',
+                imageUrl: item.imageUrl || '',
+                description: item.description || '',
+                type: item.type || 'estate_sale'
+              }))}
             selectedSales={selectedSales.map(s => s.title || '')}
             onSaleSelection={(saleTitle, selected) => {
               const sale = sortedData.find((item: any) => item.title === saleTitle);
