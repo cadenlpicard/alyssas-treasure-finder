@@ -126,22 +126,24 @@ export const EstateSalesScraper = () => {
     }, 500);
 
     try {
-      const estateSalesResult = await FirecrawlService.crawlWebsite(url);
+      const estatePromise = FirecrawlService.crawlWebsite(url);
+      const thriftPromise = includeThriftStores 
+        ? FirecrawlService.searchThriftStores(url, radiusFilter)
+        : null;
+
+      const [estateSalesResult, thriftStoresResult] = await Promise.all([
+        estatePromise,
+        thriftPromise ? thriftPromise : Promise.resolve({ success: false }) as any,
+      ]);
+
       let allResults: any[] = [];
 
       if (estateSalesResult.success) {
         allResults = [...(estateSalesResult.data?.data || [])];
       }
 
-      if (includeThriftStores) {
-        try {
-          const thriftStoresResult = await FirecrawlService.searchThriftStores(url, radiusFilter);
-          if (thriftStoresResult.success && thriftStoresResult.data) {
-            allResults = [...allResults, ...thriftStoresResult.data];
-          }
-        } catch (error) {
-          logger.error('Thrift store search failed', { error });
-        }
+      if ((thriftStoresResult as any)?.success && (thriftStoresResult as any)?.data) {
+        allResults = [...allResults, ...((thriftStoresResult as any).data)];
       }
 
       clearInterval(progressInterval);
