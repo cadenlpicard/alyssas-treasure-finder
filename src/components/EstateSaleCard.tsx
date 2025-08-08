@@ -413,4 +413,4 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
     </Card>
     </TooltipProvider>
   );
-};
+});
