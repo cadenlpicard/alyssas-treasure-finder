@@ -45,14 +45,17 @@ const Index = () => {
     return <PasscodeWindow onPasscodeCorrect={handlePasscodeCorrect} />;
   }
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-muted/10">
+    <div className="min-h-screen bg-gradient-to-br from-background via-[hsl(var(--accent)/0.4)] to-[hsl(var(--marble))]">
       {/* Hero Section */}
       <div className="relative h-screen flex items-center justify-center overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{ backgroundImage: `url(${heroImage})` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-background/90 via-background/70 to-background/50" />
+        {/* Warm brass glow overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--brass)/0.25)] via-background/70 to-background/50" />
+        {/* Checkered floor vibe at bottom */}
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-40 opacity-30 bg-checker" />
         
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto animate-fade-in">
           {/* Icon Badge */}
@@ -73,15 +76,15 @@ const Index = () => {
           
           {/* Feature Pills */}
           <div className="flex flex-wrap justify-center gap-4 mb-8 animate-fade-in" style={{ animationDelay: '0.6s' }}>
-            <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border border-border/50 rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg">
+            <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg" style={{ borderColor: 'hsl(var(--vintage-gold) / 0.35)' }}>
               <MapPin className="w-5 h-5 text-primary transition-transform group-hover:scale-110" />
               <span className="text-sm font-medium">Location Search</span>
             </div>
-            <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border border-border/50 rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg">
+            <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg" style={{ borderColor: 'hsl(var(--vintage-gold) / 0.35)' }}>
               <Clock className="w-5 h-5 text-primary transition-transform group-hover:scale-110" />
               <span className="text-sm font-medium">Real-time Updates</span>
             </div>
-            <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border border-border/50 rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg">
+            <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg" style={{ borderColor: 'hsl(var(--vintage-gold) / 0.35)' }}>
               <Gem className="w-5 h-5 text-primary transition-transform group-hover:scale-110" />
               <span className="text-sm font-medium">Hidden Treasures</span>
             </div>
@@ -99,7 +102,7 @@ const Index = () => {
       {/* Main Content */}
       <div className="relative z-10 -mt-24 pb-20">
         <div className="container mx-auto px-4">
-          <div className="bg-card/95 backdrop-blur-sm border border-border/50 rounded-3xl shadow-2xl overflow-hidden animate-slide-in-right">
+          <div className="ornate-card lux-shadow overflow-hidden animate-slide-in-right">
             <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading tools...</div>}>
               <EstateSalesScraper />
             </Suspense>

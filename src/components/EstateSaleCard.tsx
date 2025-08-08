@@ -233,8 +233,8 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
 
   return (
     <TooltipProvider>
-      <Card className={`group hover:shadow-lg transition-all duration-300 border-vintage-gold/20 bg-card/80 backdrop-blur overflow-hidden ${
-        isSelected ? 'ring-2 ring-vintage-gold bg-vintage-gold/10' : ''
+      <Card className={`group transition-all duration-300 ornate-card ${
+        isSelected ? 'ring-2 ring-[hsl(var(--vintage-gold))] bg-[hsl(var(--vintage-gold)/0.06)]' : ''
       }`}>
       {sale.imageUrl && (
         <div className="relative h-48 w-full overflow-hidden cursor-pointer" onClick={() => sale.url && window.open(sale.url, '_blank')}>
