@@ -1,15 +1,98 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Haversine distance in kilometers
+function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const R = 6371; // km
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLon = (b.lng - a.lng) * Math.PI / 180;
+  const lat1 = a.lat * Math.PI / 180;
+  const lat2 = b.lat * Math.PI / 180;
+
+  const sin1 = Math.sin(dLat / 2);
+  const sin2 = Math.sin(dLon / 2);
+
+  const c = sin1 * sin1 + Math.cos(lat1) * Math.cos(lat2) * sin2 * sin2;
+  const d = 2 * Math.atan2(Math.sqrt(c), Math.sqrt(1 - c));
+  return R * d;
+}
+
+async function geocodeAddress(address: string, apiKey: string): Promise<{ lat: number; lng: number } | null> {
+  // If address is already a lat,lng string, parse directly
+  const coordMatch = address.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (coordMatch) {
+    return { lat: parseFloat(coordMatch[1]), lng: parseFloat(coordMatch[2]) };
+  }
+
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data.status !== 'OK' || !data.results?.length) return null;
+  const loc = data.results[0].geometry.location;
+  return { lat: loc.lat, lng: loc.lng };
+}
+
+function nearestNeighborOrder(points: { lat: number; lng: number }[]) {
+  const n = points.length;
+  const visited = Array(n).fill(false);
+  const order: number[] = [0];
+  visited[0] = true;
+  for (let i = 1; i < n; i++) {
+    const last = order[order.length - 1];
+    let best = -1;
+    let bestDist = Infinity;
+    for (let j = 0; j < n; j++) {
+      if (!visited[j]) {
+        const d = haversine(points[last], points[j]);
+        if (d < bestDist) {
+          bestDist = d;
+          best = j;
+        }
+      }
+    }
+    if (best >= 0) {
+      visited[best] = true;
+      order.push(best);
+    }
+  }
+  return order;
+}
+
+function twoOpt(points: { lat: number; lng: number }[], order: number[]) {
+  const n = order.length;
+  if (n <= 3) return order;
+
+  const distance = (i1: number, i2: number) => haversine(points[order[i1]], points[order[i2]]);
+
+  let improved = true;
+  while (improved) {
+    improved = false;
+    for (let i = 1; i < n - 2; i++) {
+      for (let k = i + 1; k < n - 1; k++) {
+        const delta = (distance(i - 1, i) + distance(k, k + 1)) - (distance(i - 1, k) + distance(i, k + 1));
+        if (delta > 1e-6) {
+          // reverse the segment between i and k
+          const segment = order.slice(i, k + 1).reverse();
+          order.splice(i, k - i + 1, ...segment);
+          improved = true;
+        }
+      }
+    }
+  }
+  return order;
+}
+
+function buildGoogleMapsUrl(addresses: string[]) {
+  const parts = addresses.map((a) => encodeURIComponent(a));
+  return `https://www.google.com/maps/dir/${parts.join('/')}`;
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -20,137 +103,59 @@ serve(async (req) => {
     if (!addresses || !Array.isArray(addresses) || addresses.length < 2) {
       return new Response(
         JSON.stringify({ error: 'At least 2 addresses are required' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Optimizing route for addresses:', addresses);
-    console.log('Starting address:', startingAddress);
+    const apiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
+    if (!apiKey) {
+      throw new Error('GOOGLE_PLACES_API_KEY is not set in Supabase secrets');
+    }
 
-    const prompt = `You are a route optimization expert. Given the following list of addresses, please return the most efficient visiting order to minimize total driving time and distance, along with a Google Maps directions URL.
+    // Ensure first element is the starting address
+    let inputAddresses: string[] = addresses;
+    if (startingAddress && addresses[0] !== startingAddress) {
+      inputAddresses = [startingAddress, ...addresses];
+    }
 
-${startingAddress ? `Starting Address: ${startingAddress}` : ''}
+    // Geocode all addresses
+    const geocoded = await Promise.all(inputAddresses.map((addr) => geocodeAddress(addr, apiKey)));
 
-Addresses to visit:
-${addresses.map((addr, index) => `${index + 1}. ${addr}`).join('\n')}
-
-Please analyze these addresses and return ONLY a JSON object with the optimal order and Google Maps URL. ${startingAddress ? 'The first address in the route should always be the starting address, followed by the estate sales in optimal visiting order.' : 'The array should contain the addresses in the most efficient visiting sequence.'}
-
-Critical Requirements:
-- Return ONLY the JSON object, no other text
-- Use the EXACT address strings provided (do not modify them)
-- Each address must appear EXACTLY ONCE in the optimized route
-- Do not duplicate any addresses
-- Consider typical traffic patterns and road networks
-- Optimize for the shortest total driving time and distance
-- The response must be valid JSON
-${startingAddress ? '- Always start with the provided starting address' : ''}
-- Generate a proper Google Maps directions URL with all waypoints
-- The optimizedRoute array must contain exactly ${addresses.length} unique addresses
-
-Example format: {
-  "optimizedRoute": ["address1", "address2", "address3"],
-  "googleMapsUrl": "https://www.google.com/maps/dir/encoded_address1/encoded_address2/encoded_address3"
-}`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a route optimization expert. Always respond with only valid JSON objects containing the optimized route and Google Maps URL.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 1000,
-      }),
+    // Filter out any that failed to geocode (but keep start if possible)
+    const valid: { address: string; coord: { lat: number; lng: number } }[] = [];
+    geocoded.forEach((coord, i) => {
+      if (coord) valid.push({ address: inputAddresses[i], coord });
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+    if (valid.length < 2) {
+      return new Response(
+        JSON.stringify({ error: 'Unable to geocode enough addresses to build a route' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const data = await response.json();
-    const optimizedRoute = data.choices[0].message.content.trim();
+    // Ensure the first point is the starting point
+    const startIndex = 0;
+    const points = valid.map((v) => v.coord);
 
-    console.log('OpenAI response:', optimizedRoute);
+    // Compute route order using NN + 2-opt
+    let order = nearestNeighborOrder(points);
+    order = twoOpt(points, order);
 
-    // Parse the JSON response
-    let parsedResponse;
-    try {
-      parsedResponse = JSON.parse(optimizedRoute);
-    } catch (parseError) {
-      console.error('Failed to parse OpenAI response as JSON:', optimizedRoute);
-      // Fallback to original order if parsing fails
-      parsedResponse = {
-        optimizedRoute: addresses,
-        googleMapsUrl: ''
-      };
-    }
+    // Map back to addresses
+    const orderedAddresses = order.map((idx) => valid[idx].address);
 
-    // Validate the response structure
-    if (!parsedResponse.optimizedRoute || !Array.isArray(parsedResponse.optimizedRoute)) {
-      console.warn('Invalid route response, using original order');
-      parsedResponse = {
-        optimizedRoute: addresses,
-        googleMapsUrl: parsedResponse.googleMapsUrl || ''
-      };
-    }
-
-    // Remove duplicates and validate uniqueness
-    const uniqueRoute = [...new Set(parsedResponse.optimizedRoute)];
-    if (uniqueRoute.length !== parsedResponse.optimizedRoute.length) {
-      console.warn('Duplicates found in route, removing duplicates');
-      parsedResponse.optimizedRoute = uniqueRoute;
-    }
-
-    // Validate that all original addresses are included and no duplicates exist
-    if (parsedResponse.optimizedRoute.length !== addresses.length) {
-      console.warn('Route length mismatch after deduplication, using original order');
-      parsedResponse.optimizedRoute = addresses;
-    }
-
-    // Ensure all original addresses are present in the optimized route
-    const originalAddressSet = new Set(addresses);
-    const optimizedAddressSet = new Set(parsedResponse.optimizedRoute);
-    const hasAllAddresses = addresses.every(addr => optimizedAddressSet.has(addr));
-    
-    if (!hasAllAddresses) {
-      console.warn('Missing addresses in optimized route, using original order');
-      parsedResponse.optimizedRoute = addresses;
-    }
-
-    console.log('Optimized route order:', parsedResponse.optimizedRoute);
-    console.log('Google Maps URL:', parsedResponse.googleMapsUrl);
+    const googleMapsUrl = buildGoogleMapsUrl(orderedAddresses);
 
     return new Response(
-      JSON.stringify({
-        optimizedRoute: parsedResponse.optimizedRoute,
-        googleMapsUrl: parsedResponse.googleMapsUrl || ''
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ optimizedRoute: orderedAddresses, googleMapsUrl }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error in optimize-route function:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Route optimization failed' }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Route optimization failed' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
