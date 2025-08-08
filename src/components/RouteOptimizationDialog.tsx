@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { MapPin, Route, Clock, Loader2, Navigation } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { createLogger } from '@/lib/logger';
 
 interface EstateSale {
   title?: string;
@@ -32,6 +33,7 @@ interface RouteOptimizationDialogProps {
 }
 
 export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: RouteOptimizationDialogProps) => {
+  const logger = createLogger('RouteOptimizationDialog');
   const { toast } = useToast();
   const [startingAddress, setStartingAddress] = useState('');
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -104,27 +106,26 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
       // Include starting address in the optimization
       const allAddresses = [startingAddress, ...saleAddresses];
 
-      console.log('Optimizing route from starting point:', startingAddress);
-      console.log('Including estate sale addresses:', saleAddresses);
+      logger.info('Optimizing route', { startingAddress, stops: saleAddresses.length });
 
-      // Call the ChatGPT optimization service
+      const t0 = performance.now();
       const { data, error } = await supabase.functions.invoke('optimize-route', {
         body: { 
           addresses: allAddresses,
           startingAddress: startingAddress 
         }
       });
+      const durationMs = Math.round(performance.now() - t0);
 
       if (error) {
-        console.error('Route optimization error:', error);
+        logger.error('Route optimization error', { error, durationMs });
         toast({
           title: "Route Optimization Failed",
           description: "Please try again or check your addresses",
           variant: "destructive",
         });
       } else if (data?.optimizedRoute) {
-        console.log('Optimized route received:', data.optimizedRoute);
-        console.log('Google Maps URL received:', data.googleMapsUrl);
+        logger.info('Optimized route received', { durationMs, stops: data.optimizedRoute.length });
         setOptimizedRoute(data.optimizedRoute);
         setGoogleMapsUrl(data.googleMapsUrl || '');
         
@@ -134,7 +135,7 @@ export const RouteOptimizationDialog = ({ open, onOpenChange, selectedSales }: R
         });
       }
     } catch (error) {
-      console.error('Route optimization error:', error);
+      logger.error('Route optimization exception', { error });
       toast({
         title: "Route Optimization Failed",
         description: "Please check your internet connection and try again",

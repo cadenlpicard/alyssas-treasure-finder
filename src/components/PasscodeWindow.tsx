@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import pirateImage from "@/assets/pirate-guard.jpg";
+import { createLogger } from "@/lib/logger";
 
 interface PasscodeWindowProps {
   onPasscodeCorrect: () => void;
@@ -15,6 +16,7 @@ export const PasscodeWindow = ({ onPasscodeCorrect }: PasscodeWindowProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const logger = createLogger('PasscodeWindow');
 
   // Secret passcode - you can change this to whatever you want
   const SECRET_PASSCODE = 'treasure';
@@ -23,16 +25,19 @@ export const PasscodeWindow = ({ onPasscodeCorrect }: PasscodeWindowProps) => {
     e.preventDefault();
     setIsLoading(true);
 
+    logger.info('Passcode attempt');
     // Add a small delay for dramatic effect
     await new Promise(resolve => setTimeout(resolve, 800));
 
     if (passcode.toLowerCase() === SECRET_PASSCODE) {
+      logger.info('Passcode success');
       toast({
         title: "Access Granted!",
         description: "Welcome aboard, treasure hunter!",
       });
       onPasscodeCorrect();
     } else {
+      logger.warn('Passcode failed');
       toast({
         title: "Access Denied",
         description: "Arrr! That's not the right treasure code, matey!",
@@ -57,7 +62,9 @@ export const PasscodeWindow = ({ onPasscodeCorrect }: PasscodeWindowProps) => {
           <div className="relative mx-auto w-32 h-24 rounded-xl overflow-hidden shadow-lg ring-4 ring-primary/20">
             <img 
               src={pirateImage} 
-              alt="Pirate Guard" 
+              alt="Pirate Guard protecting the treasure map" 
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           </div>

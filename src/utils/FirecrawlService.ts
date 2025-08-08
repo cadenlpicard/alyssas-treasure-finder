@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { createLogger } from '@/lib/logger';
 
 interface ErrorResponse {
   success: false;
@@ -13,13 +14,14 @@ interface ScrapeResponse {
 type FirecrawlResponse = ScrapeResponse | ErrorResponse;
 
 export class FirecrawlService {
+  private static logger = createLogger('FirecrawlService');
   static async crawlWebsite(url: string): Promise<{ success: boolean; error?: string; data?: any }> {
     try {
-      console.log('Making optimized scrape request via Supabase edge function for:', url);
+      this.logger.info('Making optimized scrape request via Supabase edge function', { url });
       
       // Generate multiple URL variants for better coverage and parallel processing
       const urlVariants = this.generateUrlVariants(url);
-      console.log('Generated URL variants:', urlVariants);
+      this.logger.info('Generated URL variants', { variants: urlVariants });
       
       // Use batch scraping for better performance
       const { data, error } = await supabase.functions.invoke('firecrawl-scrape-batch', {
@@ -27,7 +29,7 @@ export class FirecrawlService {
       });
 
       if (error) {
-        console.error('Edge function error:', error);
+        this.logger.error('Edge function error', { error });
         
         // Check if it's a 500 error from the scraping service
         if (error.message?.includes('500') || error.message?.includes('scraping engines failed')) {
@@ -44,24 +46,24 @@ export class FirecrawlService {
       }
 
       if (!data.success) {
-        console.error('Batch scrape failed:', data.error);
+        this.logger.error('Batch scrape failed', { error: data.error });
         return { 
           success: false, 
           error: data.error || 'Failed to scrape website' 
         };
       }
 
-      console.log(`Batch scrape successful: ${data.successCount}/${data.totalProcessed} URLs processed`);
+      this.logger.info('Batch scrape successful', { successCount: data.successCount, total: data.totalProcessed });
       
       // Combine markdown from all successful results
       let combinedMarkdown = '';
       const successfulResults = data.results.filter((result: any) => result.success);
       
-      console.log('Processing successful results:', successfulResults.length);
-      console.log('Full data response:', JSON.stringify(data, null, 2));
+      this.logger.info('Processing successful results', { count: successfulResults.length });
+      this.logger.debug?.('Full data response', { data });
       
       for (const result of successfulResults) {
-        console.log('Individual result structure:', JSON.stringify(result, null, 2));
+        this.logger.debug?.('Individual result structure', { result });
         
         // Try different possible markdown locations
         let markdown = '';
@@ -76,14 +78,14 @@ export class FirecrawlService {
         }
         
         if (markdown) {
-          console.log(`Adding markdown from ${result.url}, length: ${markdown.length}`);
+          this.logger.info('Adding markdown', { url: result.url, length: markdown.length });
           combinedMarkdown += markdown + '\n\n';
         } else {
-          console.log(`No markdown found for ${result.url}. Available keys:`, Object.keys(result.data || {}));
+          this.logger.warn?.('No markdown found', { url: result.url, keys: Object.keys(result.data || {}) });
         }
       }
       
-      console.log('Final combined markdown length:', combinedMarkdown.length);
+      this.logger.info('Final combined markdown length', { length: combinedMarkdown.length });
       
       // Parse estate sales from the combined markdown content
       const parsedSales = this.parseEstateSales(combinedMarkdown);
@@ -137,14 +139,13 @@ export class FirecrawlService {
   }
 
   static parseEstateSales(markdown: string): any[] {
-    console.log('Raw markdown content length:', markdown.length);
-    console.log('First 1000 chars:', markdown.substring(0, 1000));
+    this.logger.info('Parsing markdown', { length: markdown.length });
     const sales: any[] = [];
     
     // Split by image patterns - each estate sale starts with [![
     const saleBlocks = markdown.split(/(?=\[!\[)/);
     
-    console.log(`Found ${saleBlocks.length} potential sale blocks`);
+    this.logger.info('Potential sale blocks found', { count: saleBlocks.length });
     
     for (let i = 1; i < saleBlocks.length; i++) { // Skip first block (header content)
       const block = saleBlocks[i];

@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, ExternalLink, Route, X } from 'lucide-react';
-
+import { createLogger } from '@/lib/logger';
 interface EstateSale {
   title: string;
   address: string;
@@ -33,6 +33,7 @@ interface MapViewProps {
 }
 
 export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRoute }: MapViewProps) => {
+  const logger = createLogger('MapView');
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -48,14 +49,15 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
       try {
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
         if (error) {
-          console.error('Error getting Mapbox token:', error);
+          logger.error('Error getting Mapbox token', { error });
           return;
         }
         if (data?.token) {
           setMapboxToken(data.token);
+          logger.info('Mapbox token retrieved');
         }
       } catch (error) {
-        console.error('Error fetching Mapbox token:', error);
+        logger.error('Error fetching Mapbox token', { error });
       }
     };
 
@@ -86,7 +88,7 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
             coords[sale.title] = [lng, lat];
           }
         } catch (error) {
-          console.error('Error geocoding address:', sale.address, error);
+          logger.error('Error geocoding address', { address: sale.address, error });
         }
       }
       
@@ -119,6 +121,7 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
     
     map.current.on('load', () => {
       setMapInitialized(true);
+      logger.info('Map initialized', { center: [avgLng, avgLat], count: coords.length });
     });
 
     return () => {
@@ -276,9 +279,11 @@ export const MapView = ({ sales, selectedSales = [], onSaleSelection, onPlanRout
                 <img
                   src={selectedSale.imageUrl}
                   alt={selectedSale.title}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    e.currentTarget.style.display = 'none';
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
                   }}
                 />
               </div>

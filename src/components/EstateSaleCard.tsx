@@ -1,3 +1,4 @@
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,7 @@ interface EstateSaleCardProps {
   onSelect?: (sale: EstateSale, selected: boolean) => void;
 }
 
-export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSaleCardProps) => {
+export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }: EstateSaleCardProps) => {
   // Extract data from markdown if other fields are not available
   const extractFromMarkdown = (markdown: string): { title: string; date: string; address: string; company: string; description: string; city: string; state: string } => {
     if (!markdown) return { title: 'Estate Sale', date: 'Date TBD', address: 'Address TBD', company: '', description: 'No details available', city: '', state: '' };
@@ -240,10 +241,12 @@ export const EstateSaleCard = ({ sale, isSelected = false, onSelect }: EstateSal
           <img 
             src={sale.imageUrl} 
             alt={displayTitle || "Estate sale image"}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => {
               // Hide image if it fails to load
-              e.currentTarget.style.display = 'none';
+              (e.currentTarget as HTMLImageElement).style.display = 'none';
             }}
           />
           {sale.status && (

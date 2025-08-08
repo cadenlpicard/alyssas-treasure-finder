@@ -1,16 +1,37 @@
-import { useState } from "react";
-import { EstateSalesScraper } from "@/components/EstateSalesScraper";
+import React, { useEffect, useState, lazy, Suspense } from "react";
+const EstateSalesScraper = lazy(() => import("@/components/EstateSalesScraper").then(m => ({ default: m.EstateSalesScraper })));
 import { PasscodeWindow } from "@/components/PasscodeWindow";
 import heroImage from "@/assets/estate-sales-hero.jpg";
 import { Gem, MapPin, Clock } from "lucide-react";
-
+import { createLogger } from "@/lib/logger";
 const Index = () => {
+  const logger = createLogger("Page/Index");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  useEffect(() => {
+    logger.info("Index mounted");
+    document.title = "Estate Sales & Route Planner | Alyssa's Treasure Finder";
+    const metaDesc = "Find estate sales near you, plan optimal routes, and uncover vintage treasures.";
+    let meta = document.querySelector('meta[name="description"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'description');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', metaDesc);
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonical);
+    }
+    canonical.setAttribute('href', window.location.origin + '/');
+  }, []);
+
   const handlePasscodeCorrect = () => {
+    logger.info("Passcode accepted");
     setIsAuthenticated(true);
   };
-
   if (!isAuthenticated) {
     return <PasscodeWindow onPasscodeCorrect={handlePasscodeCorrect} />;
   }
@@ -70,7 +91,9 @@ const Index = () => {
       <div className="relative z-10 -mt-24 pb-20">
         <div className="container mx-auto px-4">
           <div className="bg-card/95 backdrop-blur-sm border border-border/50 rounded-3xl shadow-2xl overflow-hidden animate-slide-in-right">
-            <EstateSalesScraper />
+            <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading tools...</div>}>
+              <EstateSalesScraper />
+            </Suspense>
           </div>
         </div>
       </div>

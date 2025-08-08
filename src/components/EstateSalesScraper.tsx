@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Calendar, DollarSign, Search, Grid, Route, Map, Loader2, Sparkles, List, ArrowUpDown, Store } from 'lucide-react';
 import { EstateSaleCard } from './EstateSaleCard';
-import { MapView } from './MapView';
-import { RouteOptimizationDialog } from './RouteOptimizationDialog';
+const MapView = lazy(() => import('./MapView').then(m => ({ default: m.MapView })));
+const RouteOptimizationDialog = lazy(() => import('./RouteOptimizationDialog').then(m => ({ default: m.RouteOptimizationDialog })));
 import { LocationInput } from './LocationInput';
-
+import { createLogger } from '@/lib/logger';
 
 interface EstateSale {
   title?: string;
@@ -49,6 +49,7 @@ interface CrawlResult {
 }
 
 export const EstateSalesScraper = () => {
+  const logger = createLogger('EstateSalesScraper');
   const { toast } = useToast();
   const [url, setUrl] = useState('');
   const [radiusFilter, setRadiusFilter] = useState<number>(25);
@@ -78,19 +79,16 @@ export const EstateSalesScraper = () => {
     return match ? parseInt(match[1]) : 999;
   };
 
-  const handleSaleSelection = (sale: EstateSale, selected: boolean) => {
+  const handleSaleSelection = useCallback((sale: EstateSale, selected: boolean) => {
     const saleId = sale.uniqueId || `${sale.title}-${sale.address}-${sale.date}`;
-    if (selected) {
-      setSelectedSales(prev => [...prev, sale]);
-    } else {
-      setSelectedSales(prev => prev.filter(s => {
-        const existingId = s.uniqueId || `${s.title}-${s.address}-${s.date}`;
-        return existingId !== saleId;
-      }));
-    }
-  };
+    logger.info('Selection toggled', { saleId, selected });
+    setSelectedSales(prev => selected
+      ? [...prev, sale]
+      : prev.filter(s => (s.uniqueId || `${s.title}-${s.address}-${s.date}`) !== saleId)
+    );
+  }, []);
 
-  const handlePlanRoute = () => {
+  const handlePlanRoute = useCallback(() => {
     if (selectedSales.length < 2) {
       toast({
         title: "Selection Required",
@@ -99,12 +97,13 @@ export const EstateSalesScraper = () => {
       });
       return;
     }
+    logger.info('Opening route dialog', { selectedCount: selectedSales.length });
     setShowRouteDialog(true);
-  };
+  }, [selectedSales.length, toast]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!url || url.trim() === '') {
       toast({
         title: "Location Required",
@@ -113,29 +112,27 @@ export const EstateSalesScraper = () => {
       });
       return;
     }
-    
+
     setIsLoading(true);
     setProgress(0);
     setCrawlResult(null);
-    
-    try {
-      console.log('Starting crawl for URL:', url);
-      
-      // Simulate progress for better UX
-      const progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + 10, 90));
-      }, 500);
 
-      // First get estate sales
+    const start = performance.now();
+    logger.info('Crawl started', { url, includeThriftStores, radiusFilter });
+
+    // Simulate progress for better UX
+    const progressInterval = setInterval(() => {
+      setProgress(prev => Math.min(prev + 10, 90));
+    }, 500);
+
+    try {
       const estateSalesResult = await FirecrawlService.crawlWebsite(url);
-      
-      let allResults = [];
-      
+      let allResults: any[] = [];
+
       if (estateSalesResult.success) {
         allResults = [...(estateSalesResult.data?.data || [])];
       }
-      
-      // If thrift stores are requested, search for those too
+
       if (includeThriftStores) {
         try {
           const thriftStoresResult = await FirecrawlService.searchThriftStores(url, radiusFilter);
@@ -143,14 +140,16 @@ export const EstateSalesScraper = () => {
             allResults = [...allResults, ...thriftStoresResult.data];
           }
         } catch (error) {
-          console.error('Error searching thrift stores:', error);
-          // Continue with just estate sales
+          logger.error('Thrift store search failed', { error });
         }
       }
-      
+
       clearInterval(progressInterval);
       setProgress(100);
-      
+
+      const durationMs = Math.round(performance.now() - start);
+      logger.info('Crawl completed', { resultCount: allResults.length, durationMs });
+
       if (allResults.length > 0) {
         toast({
           title: "Success",
@@ -174,7 +173,7 @@ export const EstateSalesScraper = () => {
         });
       }
     } catch (error) {
-      console.error('Error scraping website:', error);
+      logger.error('Error scraping website', { error });
       toast({
         title: "Error",
         description: "Failed to scrape website",
@@ -184,7 +183,7 @@ export const EstateSalesScraper = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [url, includeThriftStores, radiusFilter, toast]);
 
   const renderResults = () => {
     if (!crawlResult || !crawlResult.data || crawlResult.data.length === 0) {
@@ -585,11 +584,13 @@ export const EstateSalesScraper = () => {
 
         {renderResults()}
 
-        <RouteOptimizationDialog
-          open={showRouteDialog}
-          onOpenChange={setShowRouteDialog}
-          selectedSales={selectedSales}
-        />
+        <Suspense fallback={null}>
+          <RouteOptimizationDialog
+            open={showRouteDialog}
+            onOpenChange={setShowRouteDialog}
+            selectedSales={selectedSales}
+          />
+        </Suspense>
       </div>
     </div>
   );
