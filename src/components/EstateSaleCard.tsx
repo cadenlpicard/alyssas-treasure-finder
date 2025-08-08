@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MapPin, Calendar, Clock, ExternalLink, Tag, CheckCircle, Store, Star, Phone } from 'lucide-react';
 
@@ -251,6 +251,21 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
               (e.currentTarget as HTMLImageElement).style.display = 'none';
             }}
           />
+
+          {hasValidAddress && !isSelected && (
+            <Button
+              size="sm"
+              variant="treasure"
+              className="absolute top-2 left-2 z-10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect?.(sale, true);
+              }}
+            >
+              Add to route
+            </Button>
+          )}
+
           {sale.status && (
             <Badge 
               variant="secondary" 
@@ -264,14 +279,15 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3 flex-1">
-            {hasValidAddress && (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={(checked) => {
-                  onSelect?.(sale, !!checked);
-                }}
+            {hasValidAddress && !sale.imageUrl && !isSelected && (
+              <Button
+                size="sm"
+                variant="treasure"
                 className="mt-1"
-              />
+                onClick={() => onSelect?.(sale, true)}
+              >
+                Add to route
+              </Button>
             )}
             <div className="flex-1">
               <CardTitle className="font-display text-lg font-semibold text-foreground leading-tight">
