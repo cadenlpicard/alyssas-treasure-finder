@@ -541,31 +541,37 @@ export const EstateSalesScraper = () => {
               </div>
             </div>
             
-            <div className="flex flex-wrap items-center gap-3 bg-muted/30 rounded-lg p-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="include-thrift-stores"
-                  checked={includeThriftStores}
-                  onCheckedChange={(checked) => setIncludeThriftStores(!!checked)}
-                />
-                <label 
-                  htmlFor="include-thrift-stores" 
-                  className="text-lg font-medium text-foreground flex items-center gap-3 cursor-pointer"
-                >
-                  <Store className="w-5 h-5 text-primary" />
-                  Include thrift stores
-                </label>
+            <div className="space-y-2">
+              <div className="text-lg font-semibold text-foreground">Include</div>
+              <div className="flex flex-wrap items-center gap-6 bg-muted/30 rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="include-thrift-stores"
+                    checked={includeThriftStores}
+                    onCheckedChange={(checked) => setIncludeThriftStores(!!checked)}
+                  />
+                  <label 
+                    htmlFor="include-thrift-stores" 
+                    className="text-base font-medium text-foreground flex items-center gap-2 cursor-pointer"
+                  >
+                    <Store className="w-4 h-4 text-primary" />
+                    Thrift stores
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="include-craigslist"
+                    checked={includeCraigslist}
+                    onCheckedChange={(checked) => setIncludeCraigslist(!!checked)}
+                  />
+                  <label 
+                    htmlFor="include-craigslist" 
+                    className="text-base font-medium text-foreground cursor-pointer"
+                  >
+                    Craigslist
+                  </label>
+                </div>
               </div>
-              <Button
-                type="button"
-                variant={includeCraigslist ? 'vintage' : 'outline'}
-                size="sm"
-                onClick={() => setIncludeCraigslist((v) => !v)}
-                className="ml-auto"
-                aria-pressed={includeCraigslist}
-              >
-                {includeCraigslist ? 'Craigslist: On' : 'Include Craigslist'}
-              </Button>
             </div>
             
             {isLoading && (
