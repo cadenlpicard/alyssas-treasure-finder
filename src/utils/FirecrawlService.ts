@@ -554,4 +554,80 @@ export class FirecrawlService {
       return null;
     }
   }
+
+  static async searchCraigslist(locationUrl: string, radiusFilter: number): Promise<{ success: boolean; error?: string; data?: any }> {
+    try {
+      this.logger.info('Searching Craigslist', { locationUrl, radiusFilter });
+
+      // Extract city/state/zip from estatesales.net URL or use raw location
+      let zipcode = '';
+      if (locationUrl.includes('estatesales.net')) {
+        const zipMatch = locationUrl.match(/\/(\d{5})(?:\D|$)/);
+        if (zipMatch) zipcode = zipMatch[1];
+      } else {
+        const zipMatch = locationUrl.match(/\b(\d{5})\b/);
+        if (zipMatch) zipcode = zipMatch[1];
+      }
+
+      if (!zipcode) {
+        return { success: false, error: 'Unable to determine zipcode for Craigslist search' };
+      }
+
+      const radius = radiusFilter === 999 ? 25 : radiusFilter;
+      const base = `https://www.craigslist.org/search/gms?postal=${zipcode}&search_distance=${radius}&query=estate%20sale&hasPic=1&bundleDuplicates=1`;
+      const urls = [base, `${base}&s=120`];
+
+      const { data, error } = await supabase.functions.invoke('firecrawl-scrape-batch', {
+        body: { urls }
+      });
+
+      if (error || !data?.success) {
+        this.logger.error('Craigslist scrape error', { error: error || data?.error });
+        return { success: false, error: (error as any)?.message || (data as any)?.error || 'Failed to scrape Craigslist' };
+      }
+
+      // Combine markdown from result pages
+      let combined = '';
+      for (const r of (data as any).results.filter((r: any) => r.success)) {
+        const md = r.data?.markdown || r.data?.content || '';
+        combined += md + '\n';
+      }
+
+      const listings = this.parseCraigslistListings(combined).map(l => ({
+        ...l,
+        type: 'estate_sale',
+        company: 'Craigslist',
+      }));
+
+      return { success: true, data: listings };
+    } catch (err) {
+      this.logger.error('Error searching Craigslist', { err });
+      return { success: false, error: err instanceof Error ? err.message : 'Craigslist search failed' };
+    }
+  }
+
+  static parseCraigslistListings(markdown: string): any[] {
+    const items: any[] = [];
+    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[a-z0-9.-]*craigslist\.org\/[^)]+?\.html)\)/gi;
+    const seenUrls = new Set<string>();
+    let match: RegExpExecArray | null;
+    while ((match = linkRegex.exec(markdown)) !== null) {
+      const title = match[1].trim();
+      const url = match[2];
+      if (seenUrls.has(url)) continue;
+      seenUrls.add(url);
+      // Try to capture neighborhood/location if present on same line
+      const after = markdown.slice(match.index, match.index + 200);
+      const hoodMatch = after.match(/\(([^)]+)\)\s*\n/);
+      const neighborhood = hoodMatch ? hoodMatch[1] : '';
+      items.push({
+        title,
+        url,
+        address: '',
+        description: neighborhood || 'Craigslist listing',
+        sourceURL: url,
+      });
+    }
+    return items;
+  }
 }

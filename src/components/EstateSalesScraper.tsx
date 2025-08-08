@@ -61,6 +61,7 @@ export const EstateSalesScraper = () => {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [sortBy, setSortBy] = useState<'date' | 'distance'>('date');
   const [includeThriftStores, setIncludeThriftStores] = useState(false);
+  const [includeCraigslist, setIncludeCraigslist] = useState(false);
 
   // Helper function to parse distance from text
   const parseDistance = (distanceText?: string): number => {
@@ -130,10 +131,14 @@ export const EstateSalesScraper = () => {
       const thriftPromise = includeThriftStores 
         ? FirecrawlService.searchThriftStores(url, radiusFilter)
         : null;
+      const craigslistPromise = includeCraigslist
+        ? FirecrawlService.searchCraigslist(url, radiusFilter)
+        : null;
 
-      const [estateSalesResult, thriftStoresResult] = await Promise.all([
+      const [estateSalesResult, thriftStoresResult, craigslistResult] = await Promise.all([
         estatePromise,
         thriftPromise ? thriftPromise : Promise.resolve({ success: false }) as any,
+        craigslistPromise ? craigslistPromise : Promise.resolve({ success: false }) as any,
       ]);
 
       let allResults: any[] = [];
@@ -142,9 +147,12 @@ export const EstateSalesScraper = () => {
         allResults = [...(estateSalesResult.data?.data || [])];
       }
 
-      if ((thriftStoresResult as any)?.success && (thriftStoresResult as any)?.data) {
-        allResults = [...allResults, ...((thriftStoresResult as any).data)];
-      }
+    if ((thriftStoresResult as any)?.success && (thriftStoresResult as any)?.data) {
+      allResults = [...allResults, ...((thriftStoresResult as any).data)];
+    }
+    if ((craigslistResult as any)?.success && (craigslistResult as any)?.data) {
+      allResults = [...allResults, ...((craigslistResult as any).data)];
+    }
 
       clearInterval(progressInterval);
       setProgress(100);
@@ -155,7 +163,7 @@ export const EstateSalesScraper = () => {
       if (allResults.length > 0) {
         toast({
           title: "Success",
-          description: `Found ${allResults.length} ${includeThriftStores ? 'estate sales and thrift stores' : 'estate sales'}!`,
+          description: `Found ${allResults.length} ${includeThriftStores || includeCraigslist ? 'results' : 'estate sales'}!`,
           duration: 3000,
         });
         setCrawlResult({
@@ -192,26 +200,24 @@ export const EstateSalesScraper = () => {
       return null;
     }
 
-    // First deduplicate results based on similar titles and addresses
-    const deduplicatedData = crawlResult.data.filter((item: any, index: number, self: any[]) => {
-      return index === self.findIndex((other: any) => {
-        const itemTitle = (item.title || item.markdown || '').toLowerCase().trim();
-        const otherTitle = (other.title || other.markdown || '').toLowerCase().trim();
-        const itemAddress = (item.address || item.markdown || '').toLowerCase().trim();
-        const otherAddress = (other.address || other.markdown || '').toLowerCase().trim();
-        
-        // Consider items duplicates if titles are very similar or addresses match
-        const titleSimilarity = itemTitle === otherTitle || 
-          (itemTitle.length > 10 && otherTitle.length > 10 && 
-           (itemTitle.includes(otherTitle.substring(0, 15)) || otherTitle.includes(itemTitle.substring(0, 15))));
-        
-        const addressSimilarity = itemAddress === otherAddress ||
-          (itemAddress.includes('del rio') && otherAddress.includes('del rio')) ||
-          (itemAddress.includes('grand blanc') && otherAddress.includes('grand blanc') && 
-           itemAddress.length < 50 && otherAddress.length < 50);
-        
-        return titleSimilarity || addressSimilarity;
-      });
+    // First deduplicate results across sources
+    const seen = new Set<string>();
+    const stopwords = ['estate','sale','garage','moving','tag','online','auction','local'];
+    const norm = (s?: string) => (s || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w && !stopwords.includes(w))
+      .join(' ');
+
+    const deduplicatedData = crawlResult.data.filter((item: any) => {
+      const title = norm(item.title || item.markdown || '');
+      const addr = norm(item.address || item.streetAddress || '');
+      const key = (addr ? addr : title).slice(0, 80);
+      if (key.length < 3) return true; // keep items with no meaningful key
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
 
     // Filter by radius and date
@@ -535,19 +541,31 @@ export const EstateSalesScraper = () => {
               </div>
             </div>
             
-            <div className="flex items-center space-x-2 bg-muted/30 rounded-lg p-4">
-              <Checkbox 
-                id="include-thrift-stores"
-                checked={includeThriftStores}
-                onCheckedChange={(checked) => setIncludeThriftStores(!!checked)}
-              />
-              <label 
-                htmlFor="include-thrift-stores" 
-                className="text-lg font-medium text-foreground flex items-center gap-3 cursor-pointer"
+            <div className="flex flex-wrap items-center gap-3 bg-muted/30 rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="include-thrift-stores"
+                  checked={includeThriftStores}
+                  onCheckedChange={(checked) => setIncludeThriftStores(!!checked)}
+                />
+                <label 
+                  htmlFor="include-thrift-stores" 
+                  className="text-lg font-medium text-foreground flex items-center gap-3 cursor-pointer"
+                >
+                  <Store className="w-5 h-5 text-primary" />
+                  Include thrift stores
+                </label>
+              </div>
+              <Button
+                type="button"
+                variant={includeCraigslist ? 'vintage' : 'outline'}
+                size="sm"
+                onClick={() => setIncludeCraigslist((v) => !v)}
+                className="ml-auto"
+                aria-pressed={includeCraigslist}
               >
-                <Store className="w-5 h-5 text-primary" />
-                Include thrift stores in search
-              </label>
+                {includeCraigslist ? 'Craigslist: On' : 'Include Craigslist'}
+              </Button>
             </div>
             
             {isLoading && (
