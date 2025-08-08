@@ -26,10 +26,19 @@ const Index = () => {
       document.head.appendChild(canonical);
     }
     canonical.setAttribute('href', window.location.origin + '/');
+
+    // Restore auth state
+    try {
+      const stored = localStorage.getItem('atf_auth');
+      if (stored === '1') {
+        setIsAuthenticated(true);
+      }
+    } catch {}
   }, []);
 
   const handlePasscodeCorrect = () => {
     logger.info("Passcode accepted");
+    try { localStorage.setItem('atf_auth', '1'); } catch {}
     setIsAuthenticated(true);
   };
   if (!isAuthenticated) {
