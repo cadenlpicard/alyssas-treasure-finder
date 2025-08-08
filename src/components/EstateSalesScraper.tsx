@@ -290,7 +290,7 @@ export const EstateSalesScraper = () => {
 
     return (
       <div className="mt-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
           <div className="flex items-center gap-4">
             <h4 className="font-semibold text-foreground flex items-center gap-2">
               <Grid className="w-5 h-5 text-vintage-gold" />
@@ -322,21 +322,21 @@ export const EstateSalesScraper = () => {
               </Badge>
              )}
            </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Sort Option */}
             <Select value={sortBy} onValueChange={(value: 'date' | 'distance') => setSortBy(value)}>
               <SelectTrigger className="h-8 w-32">
                 <ArrowUpDown className="w-4 h-4 mr-1" />
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-50 bg-card max-h-[60vh] overflow-auto">
                 <SelectItem value="date">By Date</SelectItem>
                 <SelectItem value="distance">By Distance</SelectItem>
               </SelectContent>
             </Select>
             
             {/* View Toggle */}
-            <div className="flex items-center bg-muted/50 rounded-lg p-1">
+            <div className="flex items-center bg-muted/50 rounded-lg p-1 flex-shrink-0">
               <Button
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="sm"
@@ -486,21 +486,21 @@ export const EstateSalesScraper = () => {
   };
 
   return (
-    <div className="p-8 md:p-12">
+    <div className="px-4 py-6 sm:p-8 md:p-12">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12 animate-fade-in">
           <div className="w-24 h-24 bg-gradient-to-br from-primary to-primary/70 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl ring-4 ring-primary/20">
             <Sparkles className="w-12 h-12 text-primary-foreground" />
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Alyssa's Treasure Finder</h2>
+          <h2 className="font-display text-4xl md:text-5xl font-extrabold text-foreground mb-4">Alyssa's Treasure Finder</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             Discover hidden treasures at estate sales with intelligent route planning
           </p>
         </div>
 
         {/* Scraping Form */}
-        <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-8 mb-8 shadow-lg animate-scale-in">
+        <div className="ornate-card p-6 sm:p-8 mb-8 shadow-lg animate-scale-in">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-3">
@@ -519,7 +519,7 @@ export const EstateSalesScraper = () => {
                   <SelectTrigger className="h-12 text-base">
                     <SelectValue placeholder="Select radius" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-50 bg-card max-h-[60vh] overflow-auto">
                     <SelectItem value="5">5 miles</SelectItem>
                     <SelectItem value="10">10 miles</SelectItem>
                     <SelectItem value="15">15 miles</SelectItem>

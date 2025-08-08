@@ -244,6 +244,8 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
             loading="lazy"
             decoding="async"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 640px) 100vw, 50vw"
+            srcSet={`${sale.imageUrl} 800w`}
             onError={(e) => {
               // Hide image if it fails to load
               (e.currentTarget as HTMLImageElement).style.display = 'none';

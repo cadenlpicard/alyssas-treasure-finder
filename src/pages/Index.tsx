@@ -1,7 +1,6 @@
 import React, { useEffect, useState, lazy, Suspense } from "react";
 const EstateSalesScraper = lazy(() => import("@/components/EstateSalesScraper").then(m => ({ default: m.EstateSalesScraper })));
 import { PasscodeWindow } from "@/components/PasscodeWindow";
-import heroImage from "@/assets/estate-sales-hero.jpg";
 import { Gem, MapPin, Clock } from "lucide-react";
 import { createLogger } from "@/lib/logger";
 const Index = () => {
@@ -47,10 +46,10 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-[hsl(var(--accent)/0.4)] to-[hsl(var(--marble))]">
       {/* Hero Section */}
-      <div className="relative h-screen flex items-center justify-center overflow-hidden">
+      <div className="relative h-[85vh] sm:h-screen flex items-center justify-center overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: `url(${heroImage})` }}
+          style={{ backgroundImage: `url(/lovable-uploads/cbd8f61a-bb0d-4c34-992a-77bd8a0f6646.png)` }}
         />
         {/* Warm brass glow overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--brass)/0.25)] via-background/70 to-background/50" />
