@@ -62,7 +62,7 @@ const Index = () => {
             </div>
           </div>
           
-          <h1 className="text-6xl md:text-8xl font-bold mb-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+          <h1 className="font-display text-6xl md:text-8xl font-extrabold mb-6 animate-fade-in tracking-tight drop-shadow-[0_2px_0_hsl(var(--vintage-gold))]" style={{ animationDelay: '0.2s' }}>
             <span className="text-foreground">Alyssa's Treasure</span>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary/80 to-primary/60"> Finder</span>
           </h1>

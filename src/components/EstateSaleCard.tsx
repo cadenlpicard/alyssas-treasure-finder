@@ -272,7 +272,7 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
               />
             )}
             <div className="flex-1">
-              <CardTitle className="text-lg font-semibold text-foreground leading-tight">
+              <CardTitle className="font-display text-lg font-semibold text-foreground leading-tight">
                 {displayTitle}
                 {isSelected && <CheckCircle className="inline-block w-4 h-4 ml-2 text-vintage-gold" />}
               </CardTitle>
