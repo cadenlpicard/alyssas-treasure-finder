@@ -30,3 +30,12 @@ verify_jwt = false
 
 [functions.firecrawl-scrape-batch]
 verify_jwt = false
+
+[functions.generate-embeddings]
+verify_jwt = false
+
+[functions.semantic-search-items]
+verify_jwt = false
+
+[functions.ocr-extract]
+verify_jwt = false
