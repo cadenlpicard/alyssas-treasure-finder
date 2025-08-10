@@ -120,7 +120,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_items: {
+        Args: {
+          query_embedding: string
+          match_threshold?: number
+          match_count?: number
+        }
+        Returns: {
+          id: string
+          name: string
+          name_normalized: string
+          similarity: number
+        }[]
+      }
     }
     Enums: {
       image_job_status: "queued" | "processing" | "done" | "error"
