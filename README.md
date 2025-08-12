@@ -17,13 +17,18 @@ A sophisticated estate sales discovery and route optimization platform that help
 - **Geocoding**: Automatic address-to-coordinates conversion
 
 ### 🛣️ Route Optimization
-- **Multi-Stop Planning**: Select multiple estate sales for route planning
-- **Efficient Routing**: Get optimized directions to visit all selected sales
-- **Distance Calculations**: See distances and estimated travel times
+- Multi-stop planning for selected sales
+- Efficient routing across all stops
+- Distance and ETA calculations
 
-### 🔐 Security Features
-- **Passcode Protection**: Pirate-themed access control
-- **Secure Backend**: Supabase integration with Row Level Security
+### 🧠 AI-Powered Tools
+- OCR extraction from images (receipts, photos)
+- Semantic item search via vector embeddings
+- Batch web scraping for faster discovery
+
+### 🔐 Security
+- Public access UI (no passcode gate)
+- Secure backend with Row Level Security (Supabase)
 
 ## 🛠️ Tech Stack
 
@@ -32,6 +37,8 @@ A sophisticated estate sales discovery and route optimization platform that help
 - **Backend**: Supabase (Database, Auth, Edge Functions)
 - **Maps**: Mapbox GL JS
 - **Web Scraping**: Firecrawl API
+- **AI**: OpenAI (OCR and Embeddings)
+- **Places/Geocoding**: Google Places API
 - **Routing**: React Router DOM
 - **State Management**: React Query (TanStack Query)
 
@@ -67,11 +74,13 @@ A sophisticated estate sales discovery and route optimization platform that help
 
 4. **Configure Supabase Edge Function Secrets**
    
-   Add these secrets in your Supabase dashboard under Edge Functions:
-   ```
-   MAPBOX_ACCESS_TOKEN=your_mapbox_public_token
-   FIRECRAWL_API_KEY=your_firecrawl_api_key
-   ```
+    Add these secrets in your Supabase dashboard under Edge Functions:
+    ```
+    MAPBOX_ACCESS_TOKEN=your_mapbox_public_token
+    FIRECRAWL_API_KEY=your_firecrawl_api_key
+    OPENAI_API_KEY=your_openai_api_key
+    GOOGLE_PLACES_API_KEY=your_google_places_api_key
+    ```
 
 5. **Start the development server**
    ```bash
@@ -85,11 +94,9 @@ A sophisticated estate sales discovery and route optimization platform that help
 1. Create a new Supabase project
 2. Update the environment variables with your project details
 3. Deploy the Edge Functions:
-   ```bash
-   supabase functions deploy firecrawl-scrape
-   supabase functions deploy get-mapbox-token
-   supabase functions deploy optimize-route
-   ```
+    ```bash
+    supabase functions deploy firecrawl-scrape firecrawl-scrape-batch get-mapbox-token optimize-route generate-embeddings semantic-search-items ocr-extract search-thrift-stores
+    ```
 
 ### Mapbox Setup
 
@@ -108,8 +115,7 @@ A sophisticated estate sales discovery and route optimization platform that help
 ### Accessing the Application
 
 1. Navigate to the application URL
-2. Enter the secret passcode: `treasure`
-3. You'll be taken to the main estate sales finder interface
+2. Start exploring estate sales — no passcode required
 
 ### Finding Estate Sales
 
@@ -149,13 +155,28 @@ src/
 ## 🔧 Edge Functions
 
 ### firecrawl-scrape
-Handles web scraping of estate sale websites using the Firecrawl API.
+Scrapes a single URL using Firecrawl.
+
+### firecrawl-scrape-batch
+Scrapes multiple URLs in parallel batches with timeouts and retries.
 
 ### get-mapbox-token
-Securely provides Mapbox access tokens to the frontend.
+Securely provides Mapbox public access tokens to the frontend.
 
 ### optimize-route
-Calculates optimal routes between multiple estate sale locations.
+Optimizes multi-stop routes and returns a Google Maps share URL.
+
+### generate-embeddings
+Generates OpenAI embeddings for arbitrary input text.
+
+### semantic-search-items
+Embeds a query and runs RPC `match_items` for vector similarity search.
+
+### ocr-extract
+Extracts text from images (URL or base64) using OpenAI vision.
+
+### search-thrift-stores
+Search utility for nearby thrift stores.
 
 ## 🎨 Design System
 
@@ -197,6 +218,8 @@ The application uses a custom design system built on Tailwind CSS with:
 |--------|-------------|----------|
 | `MAPBOX_ACCESS_TOKEN` | Mapbox public access token | Yes |
 | `FIRECRAWL_API_KEY` | Firecrawl API key for web scraping | Yes |
+| `OPENAI_API_KEY` | OpenAI API key for OCR and embeddings | Yes |
+| `GOOGLE_PLACES_API_KEY` | Google Places API key for geocoding | Yes |
 
 ## 🤝 Contributing
 
