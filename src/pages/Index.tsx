@@ -1,11 +1,11 @@
-import React, { useEffect, useState, lazy, Suspense } from "react";
+import React, { useEffect, lazy, Suspense } from "react";
 const EstateSalesScraper = lazy(() => import("@/components/EstateSalesScraper").then(m => ({ default: m.EstateSalesScraper })));
-import { PasscodeWindow } from "@/components/PasscodeWindow";
+
 import { Gem, MapPin, Clock } from "lucide-react";
 import { createLogger } from "@/lib/logger";
 const Index = () => {
   const logger = createLogger("Page/Index");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
 
   useEffect(() => {
     logger.info("Index mounted");
@@ -26,23 +26,8 @@ const Index = () => {
     }
     canonical.setAttribute('href', window.location.origin + '/');
 
-    // Restore auth state
-    try {
-      const stored = localStorage.getItem('atf_auth');
-      if (stored === '1') {
-        setIsAuthenticated(true);
-      }
-    } catch {}
   }, []);
 
-  const handlePasscodeCorrect = () => {
-    logger.info("Passcode accepted");
-    try { localStorage.setItem('atf_auth', '1'); } catch {}
-    setIsAuthenticated(true);
-  };
-  if (!isAuthenticated) {
-    return <PasscodeWindow onPasscodeCorrect={handlePasscodeCorrect} />;
-  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-[hsl(var(--accent)/0.4)] to-[hsl(var(--marble))]">
       {/* Hero Section */}
