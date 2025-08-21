@@ -330,11 +330,11 @@ export const EstateSalesScraper = () => {
               </Badge>
              )}
            </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             {/* Sort Option */}
             <Select value={sortBy} onValueChange={(value: 'date' | 'distance') => setSortBy(value)}>
-              <SelectTrigger className="h-8 w-32">
-                <ArrowUpDown className="w-4 h-4 mr-1" />
+              <SelectTrigger className="h-8 w-32 text-xs sm:text-sm">
+                <ArrowUpDown className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="z-50 bg-card max-h-[60vh] overflow-auto">
@@ -349,19 +349,19 @@ export const EstateSalesScraper = () => {
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('list')}
-                className="flex items-center gap-1 h-8"
+                className="flex items-center gap-1 h-8 text-xs sm:text-sm"
               >
-                <List className="w-4 h-4" />
-                List
+                <List className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">List</span>
               </Button>
               <Button
                 variant={viewMode === 'map' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('map')}
-                className="flex items-center gap-1 h-8"
+                className="flex items-center gap-1 h-8 text-xs sm:text-sm"
               >
-                <Map className="w-4 h-4" />
-                Map
+                <Map className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Map</span>
               </Button>
             </div>
             {selectedSales.length > 0 && (
@@ -373,9 +373,9 @@ export const EstateSalesScraper = () => {
                   onClick={handlePlanRoute}
                   size="sm"
                   variant="vintage"
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 text-xs sm:text-sm touch-manipulation"
                 >
-                  <Map className="w-4 h-4" />
+                  <Map className="w-3 h-3 sm:w-4 sm:h-4" />
                   Plan Route
                 </Button>
               </div>
@@ -448,7 +448,7 @@ export const EstateSalesScraper = () => {
             onPlanRoute={handlePlanRoute}
           />
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-2">
             {sortedData.map((item: any, index: number) => {
               const uniqueId = `sale-${index}-${item.title?.slice(0, 20) || 'untitled'}-${item.address?.slice(0, 20) || 'no-address'}`.replace(/[^a-zA-Z0-9-]/g, '-');
               const saleData: EstateSale = {
@@ -494,37 +494,37 @@ export const EstateSalesScraper = () => {
   };
 
   return (
-    <div className="px-4 py-6 sm:p-8 md:p-12">
+    <div className="px-3 py-4 sm:px-4 sm:py-6 md:p-8 lg:p-12">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12 animate-fade-in">
-          <div className="w-24 h-24 bg-gradient-to-br from-primary to-primary/70 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl ring-4 ring-primary/20">
-            <Sparkles className="w-12 h-12 text-primary-foreground" />
+        <div className="text-center mb-8 sm:mb-12 animate-fade-in">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-br from-primary to-primary/70 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-xl ring-4 ring-primary/20">
+            <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-primary-foreground" />
           </div>
-          <h2 className="font-display text-4xl md:text-5xl font-extrabold text-foreground mb-4">Alyssa's Treasure Finder</h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-foreground mb-3 sm:mb-4">Alyssa's Treasure Finder</h2>
+          <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             Discover hidden treasures at estate sales with intelligent route planning
           </p>
         </div>
 
         {/* Scraping Form */}
-        <div className="ornate-card p-6 sm:p-8 mb-8 shadow-lg animate-scale-in">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-3">
+        <div className="ornate-card p-4 sm:p-6 md:p-8 mb-6 sm:mb-8 shadow-lg animate-scale-in">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-2 sm:space-y-3">
                 <LocationInput 
                   onLocationChange={setUrl}
                   initialLocation={undefined}
                 />
               </div>
               
-              <div className="space-y-3">
-                <label className="text-lg font-medium text-foreground flex items-center gap-3">
-                  <Route className="w-5 h-5 text-primary" />
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-base sm:text-lg font-medium text-foreground flex items-center gap-2 sm:gap-3">
+                  <Route className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   Search Radius
                 </label>
                 <Select value={radiusFilter.toString()} onValueChange={(value) => setRadiusFilter(parseInt(value))}>
-                  <SelectTrigger className="h-12 text-base">
+                  <SelectTrigger className="h-10 sm:h-12 text-sm sm:text-base">
                     <SelectValue placeholder="Select radius" />
                   </SelectTrigger>
                   <SelectContent className="z-50 bg-card max-h-[60vh] overflow-auto">
@@ -542,17 +542,18 @@ export const EstateSalesScraper = () => {
             </div>
             
             <div className="space-y-2">
-              <div className="text-lg font-semibold text-foreground">Include</div>
-              <div className="flex flex-wrap items-center gap-6 bg-muted/30 rounded-lg p-4">
+              <div className="text-base sm:text-lg font-semibold text-foreground">Include</div>
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 bg-muted/30 rounded-lg p-3 sm:p-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
                     id="include-thrift-stores"
                     checked={includeThriftStores}
                     onCheckedChange={(checked) => setIncludeThriftStores(!!checked)}
+                    className="h-4 w-4 sm:h-5 sm:w-5"
                   />
                   <label 
                     htmlFor="include-thrift-stores" 
-                    className="text-base font-medium text-foreground flex items-center gap-2 cursor-pointer"
+                    className="text-sm sm:text-base font-medium text-foreground flex items-center gap-2 cursor-pointer"
                   >
                     <Store className="w-4 h-4 text-primary" />
                     Thrift stores
@@ -563,10 +564,11 @@ export const EstateSalesScraper = () => {
                     id="include-craigslist"
                     checked={includeCraigslist}
                     onCheckedChange={(checked) => setIncludeCraigslist(!!checked)}
+                    className="h-4 w-4 sm:h-5 sm:w-5"
                   />
                   <label 
                     htmlFor="include-craigslist" 
-                    className="text-base font-medium text-foreground cursor-pointer"
+                    className="text-sm sm:text-base font-medium text-foreground cursor-pointer"
                   >
                     Craigslist
                   </label>
@@ -591,16 +593,16 @@ export const EstateSalesScraper = () => {
               type="submit"
               disabled={isLoading}
               size="lg"
-              className="w-full h-14 text-lg bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover-scale"
+              className="w-full h-12 sm:h-14 text-base sm:text-lg bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover-scale"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 animate-spin" />
                   Finding Treasures...
                 </>
               ) : (
                 <>
-                  <Search className="w-5 h-5 mr-3" />
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" />
                   Discover Estate Sales
                 </>
               )}

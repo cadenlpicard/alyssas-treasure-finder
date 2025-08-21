@@ -31,7 +31,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-[hsl(var(--accent)/0.4)] to-[hsl(var(--marble))]">
       {/* Hero Section */}
-      <div className="relative h-[85vh] sm:h-screen flex items-center justify-center overflow-hidden">
+      <div className="relative h-[80vh] sm:h-[85vh] md:h-screen flex items-center justify-center overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{ backgroundImage: `url(/lovable-uploads/cbd8f61a-bb0d-4c34-992a-77bd8a0f6646.png)` }}
@@ -41,36 +41,36 @@ const Index = () => {
         {/* Checkered floor vibe at bottom */}
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-40 opacity-30 bg-checker" />
         
-        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto animate-fade-in">
+        <div className="relative z-10 text-center px-4 sm:px-6 max-w-5xl mx-auto animate-fade-in">
           {/* Icon Badge */}
-          <div className="flex justify-center mb-8 animate-scale-in">
-            <div className="w-20 h-20 bg-gradient-to-br from-primary to-primary/70 rounded-full flex items-center justify-center shadow-2xl ring-4 ring-primary/20">
-              <Gem className="w-10 h-10 text-primary-foreground" />
+          <div className="flex justify-center mb-6 sm:mb-8 animate-scale-in">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-primary to-primary/70 rounded-full flex items-center justify-center shadow-2xl ring-4 ring-primary/20">
+              <Gem className="w-8 h-8 sm:w-10 sm:h-10 text-primary-foreground" />
             </div>
           </div>
           
-          <h1 className="font-display text-6xl md:text-8xl font-extrabold mb-6 animate-fade-in tracking-tight drop-shadow-[0_2px_0_hsl(var(--vintage-gold))]" style={{ animationDelay: '0.2s' }}>
+          <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-extrabold mb-4 sm:mb-6 animate-fade-in tracking-tight drop-shadow-[0_2px_0_hsl(var(--vintage-gold))]" style={{ animationDelay: '0.2s' }}>
             <span className="text-foreground">Alyssa's Treasure</span>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary/80 to-primary/60"> Finder</span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '0.4s' }}>
+          <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '0.4s' }}>
             Discover hidden treasures and vintage gems at estate sales with intelligent route planning
           </p>
           
           {/* Feature Pills */}
-          <div className="flex flex-wrap justify-center gap-4 mb-8 animate-fade-in" style={{ animationDelay: '0.6s' }}>
-            <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg" style={{ borderColor: 'hsl(var(--vintage-gold) / 0.35)' }}>
-              <MapPin className="w-5 h-5 text-primary transition-transform group-hover:scale-110" />
-              <span className="text-sm font-medium">Location Search</span>
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-6 sm:mb-8 animate-fade-in" style={{ animationDelay: '0.6s' }}>
+            <div className="group flex items-center gap-2 sm:gap-3 bg-card/80 backdrop-blur-sm border rounded-full px-4 sm:px-6 py-2 sm:py-3 hover-scale transition-all duration-300 hover:shadow-lg" style={{ borderColor: 'hsl(var(--vintage-gold) / 0.35)' }}>
+              <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-primary transition-transform group-hover:scale-110" />
+              <span className="text-xs sm:text-sm font-medium">Location Search</span>
             </div>
-            <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg" style={{ borderColor: 'hsl(var(--vintage-gold) / 0.35)' }}>
-              <Clock className="w-5 h-5 text-primary transition-transform group-hover:scale-110" />
-              <span className="text-sm font-medium">Real-time Updates</span>
+            <div className="group flex items-center gap-2 sm:gap-3 bg-card/80 backdrop-blur-sm border rounded-full px-4 sm:px-6 py-2 sm:py-3 hover-scale transition-all duration-300 hover:shadow-lg" style={{ borderColor: 'hsl(var(--vintage-gold) / 0.35)' }}>
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary transition-transform group-hover:scale-110" />
+              <span className="text-xs sm:text-sm font-medium">Real-time Updates</span>
             </div>
-            <div className="group flex items-center gap-3 bg-card/80 backdrop-blur-sm border rounded-full px-6 py-3 hover-scale transition-all duration-300 hover:shadow-lg" style={{ borderColor: 'hsl(var(--vintage-gold) / 0.35)' }}>
-              <Gem className="w-5 h-5 text-primary transition-transform group-hover:scale-110" />
-              <span className="text-sm font-medium">Hidden Treasures</span>
+            <div className="group flex items-center gap-2 sm:gap-3 bg-card/80 backdrop-blur-sm border rounded-full px-4 sm:px-6 py-2 sm:py-3 hover-scale transition-all duration-300 hover:shadow-lg" style={{ borderColor: 'hsl(var(--vintage-gold) / 0.35)' }}>
+              <Gem className="w-4 h-4 sm:w-5 sm:h-5 text-primary transition-transform group-hover:scale-110" />
+              <span className="text-xs sm:text-sm font-medium">Hidden Treasures</span>
             </div>
           </div>
         </div>
@@ -84,10 +84,10 @@ const Index = () => {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 -mt-24 pb-20">
-        <div className="container mx-auto px-4">
+      <div className="relative z-10 -mt-16 sm:-mt-24 pb-12 sm:pb-20">
+        <div className="container mx-auto px-4 sm:px-6">
           <div className="ornate-card lux-shadow overflow-hidden animate-slide-in-right">
-            <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading tools...</div>}>
+            <Suspense fallback={<div className="p-6 sm:p-8 text-center text-muted-foreground">Loading tools...</div>}>
               <EstateSalesScraper />
             </Suspense>
           </div>
@@ -95,9 +95,9 @@ const Index = () => {
       </div>
       
       {/* Footer */}
-      <footer className="relative z-10 py-12 border-t border-border/50 bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-muted-foreground text-lg">
+      <footer className="relative z-10 py-8 sm:py-12 border-t border-border/50 bg-card/50 backdrop-blur-sm">
+        <div className="container mx-auto px-4 sm:px-6 text-center">
+          <p className="text-muted-foreground text-base sm:text-lg">
             Start your treasure hunting adventure at estate sales nationwide
           </p>
         </div>

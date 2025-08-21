@@ -374,9 +374,9 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+        <Label className="text-sm sm:text-base font-medium text-foreground flex items-center gap-2">
           <MapPin className="w-4 h-4 text-primary" />
           Select Location & Zipcode
         </Label>
@@ -388,7 +388,7 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           placeholder="Search city, zipcode only (e.g. 48348)..."
-              className="h-12 border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
+              className="h-10 sm:h-12 text-sm sm:text-base border-2 border-border/50 rounded-xl bg-background/50 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-300"
               disabled={!mapboxToken}
             />
             {isLoading && (
@@ -408,12 +408,12 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
                     <button
                       key={index}
                       onClick={() => handleLocationSelect(suggestion)}
-                      className={`w-full px-4 py-3 text-left hover:bg-accent/50 flex items-center gap-3 border-b border-border/30 last:border-b-0 transition-colors ${hasZipcode ? 'bg-green-50 dark:bg-green-950/20' : 'opacity-60'}`}
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-left hover:bg-accent/50 flex items-center gap-2 sm:gap-3 border-b border-border/30 last:border-b-0 transition-colors touch-manipulation ${hasZipcode ? 'bg-green-50 dark:bg-green-950/20' : 'opacity-60'}`}
                     >
                       <MapPin className={`w-4 h-4 flex-shrink-0 ${hasZipcode ? 'text-green-600' : 'text-muted-foreground'}`} />
                       <div className="flex flex-col min-w-0 flex-1">
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-foreground truncate">
+                          <span className="text-sm sm:text-base font-medium text-foreground truncate">
                             {suggestion.text}
                           </span>
                           {hasZipcode && zipcode && (
@@ -451,10 +451,10 @@ export const LocationInput = ({ onLocationChange, initialLocation }: LocationInp
             size="icon"
             onClick={handleLocateMe}
             disabled={!mapboxToken || isLoading}
-            className="h-12 w-12 rounded-xl border-2 border-border/50 hover:border-primary/50 transition-all duration-300"
+            className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl border-2 border-border/50 hover:border-primary/50 transition-all duration-300 touch-manipulation"
             title="Use my current location"
           >
-            <MapPin className="w-5 h-5" />
+            <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
         </div>
       </div>

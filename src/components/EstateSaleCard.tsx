@@ -44,7 +44,7 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
       .replace(/arrow_back/g, '')
       .replace(/\\_/g, ' ')
       .replace(/List of.*?search/g, '')
-      .replace(/https?:\/\/[^\s\)]+/g, '') // Remove URLs
+      .replace(/https?:\/\/[^\s)]+/g, '') // Remove URLs
       .replace(/\([^)]*maps\.google[^)]*\)/g, '') // Remove Google Maps references
       .replace(/\([^)]*https?[^)]*\)/g, '') // Remove URLs in parentheses
       .replace(/#{1,6}\s*/g, '') // Remove markdown headers
@@ -111,7 +111,7 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
         line.match(/\d+\s+[A-Za-z\s]+(dr|drive|st|street|ave|avenue|rd|road|ln|lane|way|circle|ct|court)/i)
       )) {
         // Clean up address formatting
-        let cleanAddress = line
+        const cleanAddress = line
           .replace(/\\\\/g, ' ')
           .replace(/\s+/g, ' ')
           .replace(/^\[|\]$/g, '') // Remove leading/trailing brackets
@@ -237,7 +237,7 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
         isSelected ? 'ring-2 ring-[hsl(var(--vintage-gold))] bg-[hsl(var(--vintage-gold)/0.06)]' : ''
       }`}>
       {sale.imageUrl && (
-        <div className="relative h-48 w-full overflow-hidden cursor-pointer" onClick={() => sale.url && window.open(sale.url, '_blank')}>
+        <div className="relative h-40 sm:h-48 w-full overflow-hidden cursor-pointer" onClick={() => sale.url && window.open(sale.url, '_blank')}>
           <img 
             src={sale.imageUrl} 
             alt={displayTitle || "Estate sale image"}
@@ -256,7 +256,7 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
             <Button
               size="sm"
               variant="treasure"
-              className="absolute top-2 left-2 z-10"
+              className="absolute top-2 left-2 z-10 text-xs sm:text-sm"
               onClick={(e) => {
                 e.stopPropagation();
                 onSelect?.(sale, true);
@@ -276,26 +276,26 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
           )}
         </div>
       )}
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
         <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3 flex-1">
+          <div className="flex items-start gap-2 sm:gap-3 flex-1">
             {hasValidAddress && !sale.imageUrl && !isSelected && (
               <Button
                 size="sm"
                 variant="treasure"
-                className="mt-1"
+                className="mt-1 text-xs sm:text-sm"
                 onClick={() => onSelect?.(sale, true)}
               >
                 Add to route
               </Button>
             )}
             <div className="flex-1">
-              <CardTitle className="font-display text-lg font-semibold text-foreground leading-tight">
+              <CardTitle className="font-display text-base sm:text-lg font-semibold text-foreground leading-tight">
                 {displayTitle}
-                {isSelected && <CheckCircle className="inline-block w-4 h-4 ml-2 text-vintage-gold" />}
+                {isSelected && <CheckCircle className="inline-block w-3 h-3 sm:w-4 sm:h-4 ml-2 text-vintage-gold" />}
               </CardTitle>
               {displayCompany && (
-                <p className="text-sm text-muted-foreground font-medium mt-1">
+                <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
                   {displayCompany}
                 </p>
               )}
@@ -310,18 +310,18 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-6 pt-0">
         <div className="space-y-2">
           {sale.type !== 'thrift_store' && (
-            <div className="flex items-center gap-2 text-sm">
-              <Calendar className="w-4 h-4 text-estate-red flex-shrink-0" />
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-estate-red flex-shrink-0" />
               <span className="text-foreground">{displayDate}</span>
             </div>
           )}
           
           {sale.type === 'thrift_store' && sale.businessHours && (
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="w-4 h-4 text-treasure-green flex-shrink-0" />
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-treasure-green flex-shrink-0" />
               <span className="text-foreground text-xs">
                 {sale.businessHours.split(',').slice(0, 2).join(', ')}
                 {sale.businessHours.split(',').length > 2 && '...'}
@@ -330,21 +330,21 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
           )}
           
           {sale.type === 'thrift_store' && sale.rating && sale.rating > 0 && (
-            <div className="flex items-center gap-2 text-sm">
-              <Star className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-500 flex-shrink-0" />
               <span className="text-foreground">{sale.rating}/5 rating</span>
             </div>
           )}
           
           {sale.type === 'thrift_store' && sale.phone && (
-            <div className="flex items-center gap-2 text-sm">
-              <Phone className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <Phone className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 flex-shrink-0" />
               <span className="text-foreground">{sale.phone}</span>
             </div>
           )}
           
-          <div className="flex items-center gap-2 text-sm">
-            <MapPin className="w-4 h-4 text-treasure-green flex-shrink-0" />
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-treasure-green flex-shrink-0" />
             <div className="flex flex-col">
               <span className="text-foreground">{displayAddress}</span>
               
@@ -393,7 +393,7 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
           </div>
         </div>
         
-        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed"
+        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-3 leading-relaxed"
            title={displayDescription}>
           {displayDescription}
         </p>
@@ -419,7 +419,7 @@ export const EstateSaleCard = React.memo(({ sale, isSelected = false, onSelect }
             <Button 
               variant="outline" 
               size="sm" 
-              className="text-xs"
+              className="text-xs touch-manipulation"
               onClick={() => window.open(sale.url, '_blank')}
             >
               <ExternalLink className="w-3 h-3 mr-1" />
